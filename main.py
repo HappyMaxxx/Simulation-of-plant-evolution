@@ -1,11 +1,12 @@
 import random
 from typing import List, Optional, Tuple
 import pygame
+import copy
 
 pygame.init()
 
-width, height = 1200, 600
-cell_size = 20
+width, height = 1330, 350
+cell_size = 7
 
 cols = width // cell_size
 rows = height // cell_size
@@ -19,7 +20,7 @@ class Cell:
         self.tree = tree
         self.x = x
         self.y = y
-        self.level = rows - self.y + 5
+        self.level = 16 if rows - self.y + 5 > 16 else rows - self.y + 5 
         self.energy = 0
         self.gen = gen if gen else 0
         self.gen_number = tree.genome.index(gen) if gen in tree.genome else 0
@@ -27,10 +28,11 @@ class Cell:
 
     def how_mutch_upper(self) -> int:
         count = 0
-        for cell in self.tree.cells:
-            if cell.x == self.x and cell.y < self.y:
-                count += 1
-        return count 
+        for tree in trees:
+            for cell in tree.cells:
+                if cell.x == self.x and cell.y < self.y:
+                    count += 1
+        return count
 
     def update_energy(self) -> int:
         upper = self.how_mutch_upper()
@@ -39,7 +41,9 @@ class Cell:
 
     def draw_energy(self, screen: pygame.Surface) -> None:
         font = pygame.font.SysFont(None, 12)
-        string = f"{self.energy} {self.gen_number}"
+        # string = f"{self.energy} {self.gen_number}"
+        string = f"{self.energy}" if self.energy > 0 else ''
+        # string = f"{self.gen_number}"
         energy_text = font.render(string, True, (0, 0, 0))
         screen.blit(energy_text, (self.x * cell_size + 3, self.y * cell_size + 3))
 
@@ -50,7 +54,7 @@ class Tree:
         self.energy: int = 300
         self.getting_energy = sum([cell.energy for cell in self.cells if cell.state == '1'])
         self.waste_energy: int = len(self.cells) * 13
-        self.genome: List[Tuple[int, int, int]] = genome if genome else [self.generate_gen() for _ in range(16)]
+        self.genome: List[Tuple[int, int, int]] = genome if genome else [self.generate_gen(i) for i in range(16)]
         self.genome += [color_gen] if color_gen else [self.generate_color()]
         self.growth_energy = 18
         self.age = 0
@@ -60,7 +64,7 @@ class Tree:
         self.update_energy()
 
     @staticmethod
-    def generate_gen() -> List[int]:
+    def generate_gen(index: int) -> Tuple[int, int, int]:
         result = []
         for _ in range(4):
             num = random.randint(0, 31)
@@ -68,6 +72,13 @@ class Tree:
                 result.append(num)
             else:
                 result.append(30)
+
+        if index == 0:
+            count_30 = result.count(30)
+            while count_30 > 2:
+                result[result.index(30)] = random.randint(0, 15)
+                count_30 -= 1
+
         return result
 
     @staticmethod
@@ -78,43 +89,57 @@ class Tree:
         if x and y:
             self.cells.append(Cell(tree=self, x=x, y=y, gen=self.genome[0]))
         else:
-            self.cells.append(Cell(tree=self, x=random.randint(5, cols-5), y=rows - 1, gen=self.genome[0]))
+            self.cells.append(Cell(tree=self, x=random.randint(5, cols-1), y=rows - 1, gen=self.genome[0]))
     
     def grow(self) -> None:
         cells = self.cells
         for cell in cells:
+            is_growed = False
+            can_grow = False
             if cell.state == '0':
                 gen = cell.gen
-                is_growed = False
-                can_grow = False
 
                 for i in range(4):
                     if gen[i] == 30:
                         continue
 
                     if i == 0:  # Верх
-                        if cell.y > 0 and not any(c.x == cell.x and c.y == cell.y - 1 for c in self.cells):
+                        if cell.y > 0 and not any(c.x == cell.x and c.y == cell.y - 1 for tree in trees for c in tree.cells):
                             can_grow = True
                             if cell.energy >= self.growth_energy:
                                 self.cells.append(Cell(tree=self, x=cell.x, y=cell.y - 1, gen=self.genome[gen[i]]))
                                 is_growed = True
 
                     elif i == 1:  # Ліво
-                        if cell.x > 0 and not any(c.x == cell.x - 1 and c.y == cell.y for c in self.cells):
-                            can_grow = True
-                            if cell.energy >= self.growth_energy:
-                                self.cells.append(Cell(tree=self, x=cell.x - 1, y=cell.y, gen=self.genome[gen[i]]))
-                                is_growed = True
+                        if cell.x > 0:
+                            if not any(c.x == cell.x - 1 and c.y == cell.y for tree in trees for c in tree.cells):
+                                can_grow = True
+                                if cell.energy >= self.growth_energy:
+                                    self.cells.append(Cell(tree=self, x=cell.x - 1, y=cell.y, gen=self.genome[gen[i]]))
+                                    is_growed = True
+                        else:
+                            if not any(c.x == cols - 1 and c.y == cell.y for tree in trees for c in tree.cells):
+                                can_grow = True
+                                if cell.energy >= self.growth_energy:
+                                    self.cells.append(Cell(tree=self, x=cols - 1, y=cell.y, gen=self.genome[gen[i]]))
+                                    is_growed = True
 
                     elif i == 2:  # Право
-                        if cell.x < cols - 1 and not any(c.x == cell.x + 1 and c.y == cell.y for c in self.cells):
-                            can_grow = True
-                            if cell.energy >= self.growth_energy:
-                                self.cells.append(Cell(tree=self, x=cell.x + 1, y=cell.y, gen=self.genome[gen[i]]))
-                                is_growed = True
+                        if cell.x < cols - 1:
+                            if not any(c.x == cell.x + 1 and c.y == cell.y for tree in trees for c in tree.cells):
+                                can_grow = True
+                                if cell.energy >= self.growth_energy:
+                                    self.cells.append(Cell(tree=self, x=cell.x + 1, y=cell.y, gen=self.genome[gen[i]]))
+                                    is_growed = True
+                        else:
+                            if not any(c.x == 0 and c.y == cell.y for tree in trees for c in tree.cells):
+                                can_grow = True
+                                if cell.energy >= self.growth_energy:
+                                    self.cells.append(Cell(tree=self, x=0, y=cell.y, gen=self.genome[gen[i]]))
+                                    is_growed = True
 
                     elif i == 3:  # Низ
-                        if cell.y < rows - 1 and not any(c.x == cell.x and c.y == cell.y + 1 for c in self.cells):
+                        if cell.y < rows - 1 and not any(c.x == cell.x and c.y == cell.y + 1 for tree in trees for c in tree.cells):
                             can_grow = True
                             if cell.energy >= self.growth_energy:
                                 self.cells.append(Cell(tree=self, x=cell.x, y=cell.y + 1, gen=self.genome[gen[i]]))
@@ -126,6 +151,7 @@ class Tree:
 
                 if not can_grow:
                     cell.state = '1'
+
 
     def update_energy(self) -> None:
         self.getting_energy = sum([cell.energy for cell in self.cells if cell.state == '1'])
@@ -146,27 +172,55 @@ class Tree:
         if self.energy <= 0 or self.age >= self.die_age:
             self.die()
 
+    @staticmethod
+    def mutate(genome, chance=0.15) -> List[Tuple[int, int, int]]:
+        if random.random() > chance:
+            return genome, 0
+
+        gene = random.randint(0, 15)
+        position = random.randint(0, 3)
+        value = random.randint(0, 31)
+        if value >= 16:
+            value = 30
+        genome[gene][position] = value
+
+        return genome[:16], 1
+
+    def clear(self) -> None:
+        self.cells = []
+        self.energy = 0
+        self.age = 0
+        trees.remove(self)
+
     def die(self) -> None:
         self.cells = [cell for cell in self.cells if cell.state == '0']
 
         for cell in self.cells:
-            while cell.y < rows - 1 and not any(c.x == cell.x and c.y == cell.y + 1 for c in self.cells):
+            while cell.y < rows - 1 and not any(c.x == cell.x and c.y == cell.y + 1 for tree in trees for c in tree.cells):
                 cell.y += 1
 
-        for cell in self.cells:
-            trees.append(Tree(x=cell.x, y=cell.y, genome = self.genome ,color_gen=self.genome[16]))
+        grounded_cells = [cell for cell in self.cells if cell.y == rows - 1]
 
-        self.cells = []
-        self.energy = 0
-        self.age = 0
-        self.die_age = random.randint(88, 92)
-        trees.remove(self)
+        for cell in grounded_cells:
+            genome_copy = copy.deepcopy(self.genome[:16])  
+            mutated_genome, mutated = self.mutate(genome=genome_copy)
+            if mutated:
+                trees.append(Tree(x=cell.x, y=cell.y, genome=mutated_genome))
+            else:
+                trees.append(Tree(x=cell.x, y=cell.y, genome=mutated_genome, color_gen=self.genome[16]))
+
+        self.clear()
+
+    def check_for_downtime(self) -> None:
+        if len(self.cells) == 1 and self.age >= 5:
+            self.clear()
 
     def step(self) -> None:
         self.age += 1
         self.grow()
         self.update_energy()
         self.check_death()
+        self.check_for_downtime()
 
 
 def draw_genome(screen: pygame.Surface, genome: List[Tuple[int, int, int]]) -> None:
@@ -203,7 +257,14 @@ def draw_genome(screen: pygame.Surface, genome: List[Tuple[int, int, int]]) -> N
 
 trees = []
 
-trees.append(Tree())
+genome = [[13, 30, 12, 30], [30, 14, 12, 30], [30, 30, 2, 9], [30, 30, 30, 30],
+          [0, 30, 30, 30], [10, 5, 30, 30], [6, 30, 30, 30], [30, 13, 30, 13],
+          [15, 30, 30, 30], [30, 30, 0, 30], [30, 30, 30, 30], [30, 30, 2, 30],
+          [30, 2, 30, 7], [8, 9, 1, 30], [9, 30, 30, 30], [30, 15, 9, 30],
+            (255, 255, 255)]
+
+for _ in range(3):
+    trees.append(Tree())
 
 running = True
 selected_tree = None
@@ -211,11 +272,11 @@ genome_window = pygame.Surface((300, 560))
 genome_window.fill((0, 0, 0)) 
 
 while running:
-    screen.fill((255, 255, 255))
+    screen.fill((0, 0, 0))
 
     for row in range(rows):
         for col in range(cols):
-            pygame.draw.rect(screen, (200, 200, 200), (col * cell_size, row * cell_size, cell_size, cell_size), 1)
+            pygame.draw.rect(screen, (0, 0, 0), (col * cell_size, row * cell_size, cell_size, cell_size), 1)
 
     for tree in trees:
         for cell in tree.cells:
@@ -246,6 +307,6 @@ while running:
     for tree in trees:
         tree.step()
 
-    pygame.time.delay(5000)
+    pygame.time.delay(100)
 
 pygame.quit()
