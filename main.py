@@ -5,7 +5,7 @@ import pygame
 
 pygame.init()
 
-width, height = 1320, 360
+width, height = 1320, 540
 cell_size = 6
 
 cols = width // cell_size
@@ -201,6 +201,7 @@ class Tree:
             genome_copy = copy.deepcopy(self.genome[:16])
             mutated_genome, mutated = self.mutate(genome=genome_copy)
             if mutated:
+                self.simulation.generation += 1
                 self.simulation.trees.append(Tree(simulation=self.simulation, x=cell.x, y=cell.y, genome=mutated_genome))
             else:
                 self.simulation.trees.append(Tree(simulation=self.simulation, x=cell.x, y=cell.y, genome=mutated_genome, color_gen=self.genome[16]))
@@ -215,8 +216,10 @@ class Tree:
         self.age += 1
         self.grow()
         self.update_energy()
+        self.update_cells()
         self.check_death()
         self.check_for_downtime()
+
 
 class Simulation:
     def __init__(self) -> None:
@@ -224,12 +227,31 @@ class Simulation:
         self.selected_tree = None
         self.genome_window = pygame.Surface((300, 560))
         self.genome_window.fill((0, 0, 0))
+        self.display_mode = 'normal'
+        self.paused = False
+        self.pause_button_rect = pygame.Rect(1250, 40, 40, 40)
+        self.radio_x = 200
+        self.generation = 0
+
+    def draw_pause_button(self, screen: pygame.Surface) -> None:
+        pygame.draw.rect(screen, (255, 255, 255), self.pause_button_rect, 2)
+
+        if self.paused:
+            pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(self.pause_button_rect.x + 13.5, self.pause_button_rect.y + 10, 5, 20))
+            pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(self.pause_button_rect.x + 23.5, self.pause_button_rect.y + 10, 5, 20))
+        else:
+            points = [
+                (self.pause_button_rect.x + 12.5, self.pause_button_rect.y + 10),
+                (self.pause_button_rect.x + 30, self.pause_button_rect.y + 20),
+                (self.pause_button_rect.x + 12.5, self.pause_button_rect.y + 30)
+            ]
+            pygame.draw.polygon(screen, (255, 255, 255), points)
 
     def add_tree(self, genome: List[Tuple[int, int, int]] = None) -> None:
         self.trees.append(Tree(simulation=self, genome=genome))
 
     def draw_genome(self, screen: pygame.Surface, genome: List[Tuple[int, int, int]]) -> None:
-        font = pygame.font.SysFont('Arial', 5)
+        font = pygame.font.SysFont('Arial', 14)
         x_offset = 50
         y_offset = 2
         column_width = 160
@@ -260,25 +282,70 @@ class Simulation:
                 gene_number_text = font.render(value, True, color)
                 screen.blit(gene_number_text, positions[idx])
 
+    def draw_radio_buttons(self, screen: pygame.Surface) -> None:
+        font = pygame.font.SysFont(None, 24)
+        normal_text = font.render('Normal', True, (255, 255, 255))
+        energy_text = font.render('Energy', True, (255, 255, 255))
+        age_text = font.render('Age', True, (255, 255, 255))
+
+        pygame.draw.circle(screen, (255, 255, 255), (self.radio_x, 30), 10, 1)
+        pygame.draw.circle(screen, (255, 255, 255), (self.radio_x, 60), 10, 1)
+        pygame.draw.circle(screen, (255, 255, 255), (self.radio_x, 90), 10, 1)
+
+        if self.display_mode == 'normal':
+            pygame.draw.circle(screen, (255, 255, 255), (self.radio_x, 30), 5)
+        elif self.display_mode == 'energy':
+            pygame.draw.circle(screen, (255, 255, 255), (self.radio_x, 60), 5)
+        elif self.display_mode == 'age':
+            pygame.draw.circle(screen, (255, 255, 255), (self.radio_x, 90), 5)
+
+        screen.blit(normal_text, (self.radio_x + 20, 20))
+        screen.blit(energy_text, (self.radio_x + 20, 50))
+        screen.blit(age_text, (self.radio_x + 20, 80))
+    
+    def draw_generation(self, screen: pygame.Surface) -> None:
+        font = pygame.font.SysFont('Arial', 21)
+        generation_label = font.render("generation", True, (255, 255, 255))
+        generation_number = font.render(f"{self.generation}", True, (255, 255, 255))
+
+        screen.blit(generation_label, (40, 40))
+        screen.blit(generation_number, (50, 70))
+
     def run(self) -> None:
         running = True
+        for tree in self.trees:
+            tree.update_cells()
 
         while running:
             screen.fill((0, 0, 0))
 
             for row in range(rows):
                 for col in range(cols):
-                    pygame.draw.rect(screen, (0, 0, 0), (col * cell_size, row * cell_size, cell_size, cell_size), 1)
+                    if row in range(0, 20):
+                        pygame.draw.rect(screen, (169, 169, 169), (col * cell_size, row * cell_size, cell_size, cell_size))
+                    else:
+                        pygame.draw.rect(screen, (0, 0, 0), (col * cell_size, row * cell_size, cell_size, cell_size), 1)
 
             for tree in self.trees:
                 for cell in tree.cells:
-                    cell.update_energy()
-                    pygame.draw.rect(screen, tree.genome[16] if cell.state == '1' else (240, 248, 255), (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
-                    # cell.draw_energy(screen)
+                    if self.display_mode == 'normal':
+                        pygame.draw.rect(screen, tree.genome[16] if cell.state == '1' else (240, 248, 255), (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
+                    elif self.display_mode == 'energy':
+                        energy_color = (min(255, int(cell.energy * 10) + 50), 0, 0)
+                        pygame.draw.rect(screen, energy_color, (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
+                    elif self.display_mode == 'age':
+                        age_color = (225 - min(205, int(tree.age * 2.5)), 225 - min(205, int(tree.age * 2.5)), 225 - min(205, int(tree.age * 2.5)))
+                        pygame.draw.rect(screen, age_color, (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
+
+            self.draw_pause_button(screen)
 
             if self.selected_tree:
+                self.genome_window.fill((0, 0, 0))
                 self.draw_genome(self.genome_window, self.selected_tree.genome)
                 screen.blit(self.genome_window, (width - 320, 20))
+
+            self.draw_radio_buttons(screen)
+            self.draw_generation(screen)
 
             pygame.display.flip()
 
@@ -297,8 +364,23 @@ class Simulation:
                                 else:
                                     self.selected_tree = tree
 
-            for tree in self.trees:
-                tree.step()
+                    genome_window_rect = pygame.Rect(width - 320, 20, 300, 560)
+                    if genome_window_rect.collidepoint(mouse_x, mouse_y):
+                        self.selected_tree = None
+
+                    if self.radio_x - 10 <= mouse_x <= self.radio_x + 10 and 20 <= mouse_y <= 40:
+                        self.display_mode = 'normal'
+                    elif self.radio_x - 10 <= mouse_x <= self.radio_x + 10  and 50 <= mouse_y <= 70:
+                        self.display_mode = 'energy' if self.display_mode != 'energy' else 'normal'
+                    elif self.radio_x - 10 <= mouse_x <= self.radio_x + 10  and 80 <= mouse_y <= 100:
+                        self.display_mode = 'age' if self.display_mode != 'age' else 'normal'
+
+                    if self.pause_button_rect.collidepoint(mouse_x, mouse_y):
+                        self.paused = not self.paused
+
+            if not self.paused:
+                for tree in self.trees:
+                    tree.step()
 
             pygame.time.delay(100)
 
@@ -307,11 +389,10 @@ class Simulation:
 genome = [[13, 30, 12, 30], [30, 14, 12, 30], [30, 30, 2, 9], [30, 30, 30, 30],
           [0, 30, 30, 30], [10, 5, 30, 30], [6, 30, 30, 30], [30, 13, 30, 13],
           [15, 30, 30, 30], [30, 30, 0, 30], [30, 30, 30, 30], [30, 30, 2, 30],
-          [30, 2, 30, 7], [8, 9, 1, 30], [9, 30, 30, 30], [30, 15, 9, 30],
-            (255, 255, 255)]
+          [30, 2, 30, 7], [8, 9, 1, 30], [9, 30, 30, 30], [30, 15, 9, 30]]
 
 simulation = Simulation()
-for _ in range(4):
-    simulation.add_tree(genome=genome)
+for _ in range(3):
+    simulation.add_tree()
 
 simulation.run()
