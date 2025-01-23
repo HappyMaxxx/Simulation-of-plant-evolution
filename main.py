@@ -1,6 +1,10 @@
 import random
 from typing import List, Optional, Tuple
 import copy
+import os
+import tkinter as tk
+from tkinter import filedialog
+
 import pygame
 
 pygame.init()
@@ -21,6 +25,7 @@ class Cell:
         self.y = y
         self.level = 16 if rows - self.y + 5 > 16 else rows - self.y + 5
         self.energy = 0
+        self.last_energy = 0
         self.gen = gen if gen else 0
         self.gen_number = tree.genome.index(gen) if gen in tree.genome else 0
         self.state = state if state else '0'
@@ -36,6 +41,7 @@ class Cell:
     def update_energy(self) -> int:
         upper = self.how_mutch_upper()
         self.energy += self.level * max(3 - upper, 0)
+        self.last_energy = self.energy
         return self.energy
 
     def draw_energy(self, screen: pygame.Surface) -> None:
@@ -175,9 +181,8 @@ class Tree:
 
         gene = random.randint(0, 15)
         position = random.randint(0, 3)
-        value = random.randint(0, 31)
-        if value >= 16:
-            value = 30
+        value = random.randint(0, 15)
+
         genome[gene][position] = value
 
         return genome[:16], 1
@@ -215,23 +220,32 @@ class Tree:
     def step(self) -> None:
         self.age += 1
         self.grow()
-        self.update_energy()
         self.update_cells()
+        self.update_energy()
         self.check_death()
         self.check_for_downtime()
 
 
 class Simulation:
-    def __init__(self) -> None:
+    def __init__(self, started_tree: int = None) -> None:
         self.trees = []
         self.selected_tree = None
         self.genome_window = pygame.Surface((300, 560))
         self.genome_window.fill((0, 0, 0))
         self.display_mode = 'normal'
         self.paused = False
-        self.pause_button_rect = pygame.Rect(1250, 40, 40, 40)
+        self.pause_button_rect = pygame.Rect(1200, 40, 40, 40)
+        self.save_button_rect = pygame.Rect(950, 40, 90, 40)
+        self.load_button_rect = pygame.Rect(1050, 40, 90, 40)
+        self.speed_up_button_rect = pygame.Rect(1250, 40, 40, 40)
+        self.slow_down_button_rect = pygame.Rect(1150, 40, 40, 40)
         self.radio_x = 200
         self.generation = 0
+        self.simulation_speed = 100
+
+        if started_tree:
+            for _ in range(started_tree):
+                self.add_tree()
 
     def draw_pause_button(self, screen: pygame.Surface) -> None:
         pygame.draw.rect(screen, (255, 255, 255), self.pause_button_rect, 2)
@@ -247,11 +261,24 @@ class Simulation:
             ]
             pygame.draw.polygon(screen, (255, 255, 255), points)
 
-    def add_tree(self, genome: List[Tuple[int, int, int]] = None) -> None:
-        self.trees.append(Tree(simulation=self, genome=genome))
+    def draw_speed_buttons(self, screen: pygame.Surface) -> None:
+        font = pygame.font.SysFont('Arial', 16)
+        pygame.draw.rect(screen, (255, 255, 255), self.speed_up_button_rect, 2)
+        speed_up_text = font.render("+", True, (255, 255, 255))
+        screen.blit(speed_up_text, (self.speed_up_button_rect.x + 14, self.speed_up_button_rect.y + 10))
+
+        pygame.draw.rect(screen, (255, 255, 255), self.slow_down_button_rect, 2)
+        slow_down_text = font.render("-", True, (255, 255, 255))
+        screen.blit(slow_down_text, (self.slow_down_button_rect.x + 18, self.slow_down_button_rect.y + 10))
+
+        speed_text = font.render(f'Speed: {(500-self.simulation_speed)/100}', True, (255, 255, 255))
+        screen.blit(speed_text, (1175, 90))
+
+    def add_tree(self, genome: List[Tuple[int, int, int]] = None, x: int = None, y: int = None) -> None:
+        self.trees.append(Tree(simulation=self, genome=genome, x=x, y=y))
 
     def draw_genome(self, screen: pygame.Surface, genome: List[Tuple[int, int, int]]) -> None:
-        font = pygame.font.SysFont('Arial', 14)
+        font = pygame.font.SysFont('Arial', 20)
         x_offset = 50
         y_offset = 2
         column_width = 160
@@ -311,17 +338,85 @@ class Simulation:
         screen.blit(generation_label, (40, 40))
         screen.blit(generation_number, (50, 70))
 
+    def save_genome(self):
+        self.selected_tree = None
+        tree_for_save = None
+        while not tree_for_save:
+            for event in pygame.event.get():
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_x, mouse_y = pygame.mouse.get_pos()
+
+                    clicked_cell_x = mouse_x // cell_size
+                    clicked_cell_y = mouse_y // cell_size
+
+                    for tree in self.trees:
+                        for cell in tree.cells:
+                            if cell.x == clicked_cell_x and cell.y == clicked_cell_y:
+                                tree_for_save = tree
+
+        root = tk.Tk()
+        root.withdraw()
+        if not os.path.exists('saves'):
+            os.makedirs('saves')
+        file_path = filedialog.asksaveasfilename(initialdir='saves', defaultextension=".txt", filetypes=[("Text files", "*.txt")])
+
+        if file_path:
+            with open(file_path, 'w') as f:
+                for gene in tree_for_save.genome:
+                    f.write(','.join(map(str, gene)) + '\n')
+
+    def load_genome(self):
+        root = tk.Tk()
+        root.withdraw()
+        file_path = filedialog.askopenfilename(initialdir='saves', filetypes=[("Text files", "*.txt")])
+
+        if file_path:
+            with open(file_path, 'r') as f:
+                genome = [list(map(int, line.strip().split(','))) if i != 16 else tuple(map(int, line.strip().split(','))) for i, line in enumerate(f)] 
+            
+            selected_cell = None
+            free_space = True
+            while not selected_cell:
+                for event in pygame.event.get():
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        mouse_x, mouse_y = pygame.mouse.get_pos()
+
+                        clicked_cell_x = mouse_x // cell_size
+                        clicked_cell_y = mouse_y // cell_size
+
+                        for tree in self.trees:
+                            for cell in tree.cells:
+                                if cell.x == clicked_cell_x and cell.y == clicked_cell_y:
+                                    free_space = False
+                        
+                        while clicked_cell_y < rows - 1 and not any(c.x == clicked_cell_x and c.y == clicked_cell_y + 1 for tree in self.trees for c in tree.cells):
+                            clicked_cell_y += 1
+
+                        if free_space:
+                            selected_cell = (clicked_cell_x, clicked_cell_y)
+            
+            self.add_tree(genome=genome, x=selected_cell[0], y=selected_cell[1])
+
+    def draw_buttons(self, screen):
+        font = pygame.font.SysFont('Arial', 20)
+
+        pygame.draw.rect(screen, (255, 255, 255), self.save_button_rect, 2)
+        save_text = font.render("Save", True, (255, 255, 255))
+        screen.blit(save_text, (self.save_button_rect.x + 15, self.save_button_rect.y + 10))
+
+        pygame.draw.rect(screen, (255, 255, 255), self.load_button_rect, 2)
+        load_text = font.render("Load", True, (255, 255, 255))
+        screen.blit(load_text, (self.load_button_rect.x + 15, self.load_button_rect.y + 10))
+
     def run(self) -> None:
         running = True
-        for tree in self.trees:
-            tree.update_cells()
 
         while running:
             screen.fill((0, 0, 0))
 
             for row in range(rows):
                 for col in range(cols):
-                    if row in range(0, 20):
+                    if row in range(0, 19):
                         pygame.draw.rect(screen, (169, 169, 169), (col * cell_size, row * cell_size, cell_size, cell_size))
                     else:
                         pygame.draw.rect(screen, (0, 0, 0), (col * cell_size, row * cell_size, cell_size, cell_size), 1)
@@ -331,13 +426,15 @@ class Simulation:
                     if self.display_mode == 'normal':
                         pygame.draw.rect(screen, tree.genome[16] if cell.state == '1' else (240, 248, 255), (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
                     elif self.display_mode == 'energy':
-                        energy_color = (min(255, int(cell.energy * 10) + 50), 0, 0)
+                        energy_color = (min(255, int(cell.last_energy * 10) + 50), 0, 0)
                         pygame.draw.rect(screen, energy_color, (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
                     elif self.display_mode == 'age':
                         age_color = (225 - min(205, int(tree.age * 2.5)), 225 - min(205, int(tree.age * 2.5)), 225 - min(205, int(tree.age * 2.5)))
                         pygame.draw.rect(screen, age_color, (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
 
             self.draw_pause_button(screen)
+            self.draw_speed_buttons(screen)
+            self.draw_buttons(screen)
 
             if self.selected_tree:
                 self.genome_window.fill((0, 0, 0))
@@ -352,10 +449,12 @@ class Simulation:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-                if event.type == pygame.MOUSEBUTTONDOWN:
+                elif event.type == pygame.MOUSEBUTTONDOWN:
                     mouse_x, mouse_y = pygame.mouse.get_pos()
+
                     clicked_cell_x = mouse_x // cell_size
                     clicked_cell_y = mouse_y // cell_size
+
                     for tree in self.trees:
                         for cell in tree.cells:
                             if cell.x == clicked_cell_x and cell.y == clicked_cell_y:
@@ -368,6 +467,13 @@ class Simulation:
                     if genome_window_rect.collidepoint(mouse_x, mouse_y):
                         self.selected_tree = None
 
+                    if self.pause_button_rect.collidepoint(mouse_x, mouse_y):
+                        self.paused = not self.paused
+                    elif self.speed_up_button_rect.collidepoint(mouse_x, mouse_y):
+                        self.simulation_speed = max(0, self.simulation_speed - 10) 
+                    elif self.slow_down_button_rect.collidepoint(mouse_x, mouse_y):
+                        self.simulation_speed = min(400, self.simulation_speed + 10)
+
                     if self.radio_x - 10 <= mouse_x <= self.radio_x + 10 and 20 <= mouse_y <= 40:
                         self.display_mode = 'normal'
                     elif self.radio_x - 10 <= mouse_x <= self.radio_x + 10  and 50 <= mouse_y <= 70:
@@ -375,24 +481,24 @@ class Simulation:
                     elif self.radio_x - 10 <= mouse_x <= self.radio_x + 10  and 80 <= mouse_y <= 100:
                         self.display_mode = 'age' if self.display_mode != 'age' else 'normal'
 
-                    if self.pause_button_rect.collidepoint(mouse_x, mouse_y):
-                        self.paused = not self.paused
+                    if self.save_button_rect.collidepoint(mouse_x, mouse_y):
+                        self.paused = True
+                        self.save_genome()
+                        self.paused = False
+
+                    elif self.load_button_rect.collidepoint(mouse_x, mouse_y):
+                        self.paused = True
+                        self.load_genome()
+                        self.paused = False
 
             if not self.paused:
                 for tree in self.trees:
                     tree.step()
 
-            pygame.time.delay(100)
+            pygame.time.delay(self.simulation_speed)
 
         pygame.quit()
 
-genome = [[13, 30, 12, 30], [30, 14, 12, 30], [30, 30, 2, 9], [30, 30, 30, 30],
-          [0, 30, 30, 30], [10, 5, 30, 30], [6, 30, 30, 30], [30, 13, 30, 13],
-          [15, 30, 30, 30], [30, 30, 0, 30], [30, 30, 30, 30], [30, 30, 2, 30],
-          [30, 2, 30, 7], [8, 9, 1, 30], [9, 30, 30, 30], [30, 15, 9, 30]]
 
-simulation = Simulation()
-for _ in range(3):
-    simulation.add_tree()
-
+simulation = Simulation(3)
 simulation.run()
