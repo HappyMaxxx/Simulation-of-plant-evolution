@@ -468,6 +468,37 @@ class Simulation:
         plus_text = font.render("+", True, (94, 149, 95))
         screen.blit(plus_text, (430 + 15, 10 + 10))  
 
+    def handle_sun_level_buttons(self, mouse_x: int, mouse_y: int) -> None:
+        if 300 <= mouse_x <= 340 and 10 <= mouse_y <= 50:
+            self.sun_level = max(0, self.sun_level - 1)
+        elif 430 <= mouse_x <= 470 and 10 <= mouse_y <= 50:
+            self.sun_level = min(16, self.sun_level + 1)
+
+    def handle_save_load_buttons(self, mouse_x: int, mouse_y: int) -> None:
+        if self.save_button_rect.collidepoint(mouse_x, mouse_y):
+            self.paused = True
+            self.save_genome()
+            self.paused = False
+
+        elif self.load_button_rect.collidepoint(mouse_x, mouse_y):
+            self.paused = True
+            self.load_genome()
+            self.paused = False
+
+    def handle_speed_buttons(self, mouse_x: int, mouse_y: int) -> None:
+        if 300 <= mouse_x <= 340 and 60 <= mouse_y <= 100:
+            self.simulation_speed = min(400, self.simulation_speed + 10)
+        elif 430 <= mouse_x <= 470 and 60 <= mouse_y <= 100:
+            self.simulation_speed = max(0, self.simulation_speed - 10) 
+
+    def handle_radio_buttons(self, mouse_x: int, mouse_y: int) -> None:
+        if self.radio_x - 10 <= mouse_x <= self.radio_x + 10 and 20 <= mouse_y <= 40:
+            self.display_mode = 'normal'
+        elif self.radio_x - 10 <= mouse_x <= self.radio_x + 10  and 50 <= mouse_y <= 70:
+            self.display_mode = 'energy' if self.display_mode != 'energy' else 'normal'
+        elif self.radio_x - 10 <= mouse_x <= self.radio_x + 10  and 80 <= mouse_y <= 100:
+            self.display_mode = 'age' if self.display_mode != 'age' else 'normal'
+
     def run(self) -> None:
         running = True
 
@@ -533,32 +564,10 @@ class Simulation:
                     if self.pause_button_rect.collidepoint(mouse_x, mouse_y):
                         self.paused = not self.paused
 
-                    if 300 <= mouse_x <= 340 and 60 <= mouse_y <= 100:
-                        self.simulation_speed = min(400, self.simulation_speed + 10)
-                    elif 430 <= mouse_x <= 470 and 60 <= mouse_y <= 100:
-                        self.simulation_speed = max(0, self.simulation_speed - 10) 
-
-                    if self.radio_x - 10 <= mouse_x <= self.radio_x + 10 and 20 <= mouse_y <= 40:
-                        self.display_mode = 'normal'
-                    elif self.radio_x - 10 <= mouse_x <= self.radio_x + 10  and 50 <= mouse_y <= 70:
-                        self.display_mode = 'energy' if self.display_mode != 'energy' else 'normal'
-                    elif self.radio_x - 10 <= mouse_x <= self.radio_x + 10  and 80 <= mouse_y <= 100:
-                        self.display_mode = 'age' if self.display_mode != 'age' else 'normal'
-
-                    if self.save_button_rect.collidepoint(mouse_x, mouse_y):
-                        self.paused = True
-                        self.save_genome()
-                        self.paused = False
-
-                    elif self.load_button_rect.collidepoint(mouse_x, mouse_y):
-                        self.paused = True
-                        self.load_genome()
-                        self.paused = False
-
-                    if 300 <= mouse_x <= 340 and 10 <= mouse_y <= 50:
-                        self.sun_level = max(0, self.sun_level - 1)
-                    elif 430 <= mouse_x <= 470 and 10 <= mouse_y <= 50:
-                        self.sun_level = min(16, self.sun_level + 1)
+                    self.handle_radio_buttons(mouse_x, mouse_y)
+                    self.handle_speed_buttons(mouse_x, mouse_y)
+                    self.handle_save_load_buttons(mouse_x, mouse_y)
+                    self.handle_sun_level_buttons(mouse_x, mouse_y)
 
             if not self.paused:
                 for tree in self.trees:
