@@ -19,16 +19,24 @@ screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption("Tree evolution")
 
 class Cell:
-    def __init__(self, tree: 'Tree', x: int, y: int, gen: Optional[int] = None, state: Optional[str] = None) -> None:
+    def __init__(self, simulation: 'Simulation', tree: 'Tree', x: int, y: int, gen: Optional[int] = None, state: Optional[str] = None) -> None:
+        self.simulation = simulation
         self.tree = tree
         self.x = x
         self.y = y
-        self.level = 16 if rows - self.y + 5 > 16 else rows - self.y + 5
+        self.level = 0
         self.energy = 0
         self.last_energy = 0
         self.gen = gen if gen else 0
         self.gen_number = tree.genome.index(gen) if gen in tree.genome else 0
         self.state = state if state else '0'
+
+        self.update_level()
+
+    def update_level(self) -> int:
+        cell_y = rows - self.y - 1
+        new_level = cell_y + self.simulation.sun_level
+        self.level = 16 if new_level > 16 else new_level
 
     def how_mutch_upper(self) -> int:
         count = 0
@@ -40,18 +48,21 @@ class Cell:
 
     def update_energy(self) -> int:
         upper = self.how_mutch_upper()
+        self.update_level()
         self.energy += self.level * max(3 - upper, 0)
         self.last_energy = self.energy
         return self.energy
 
     def draw_energy(self, screen: pygame.Surface) -> None:
         font = pygame.font.SysFont(None, 12)
-        string = f"{self.energy}" if self.energy > 0 else ''
+        # string = f"{self.last_energy}" if self.last_energy > 0 else ''
+        string = f'{self.level}'
         energy_text = font.render(string, True, (0, 0, 0))
         screen.blit(energy_text, (self.x * cell_size + 3, self.y * cell_size + 3))
 
+
 class Tree:
-    def __init__(self, simulation: 'Simulation', x: int = None, y: int = None, genome: List[Tuple[int, int, int]] = None, color_gen: Tuple[int, int, int] = None) -> None:
+    def __init__(self, simulation: 'Simulation', x: int = None, y: int = None, genome: List[Tuple[int, int, int]] = None, color_gen: Tuple[int, int, int] = None, die_age: int = None) -> None:
         self.simulation = simulation
         self.cells: List[Cell] = []
         self.energy: int = 300
@@ -61,7 +72,8 @@ class Tree:
         self.genome += [color_gen] if color_gen else [self.generate_color()]
         self.growth_energy = 18
         self.age = 0
-        self.die_age = random.randint(88, 92)
+        self.die_age = die_age if die_age else random.randint(88, 92)
+        self.state = 1
 
         self.birth(x, y)
         self.update_energy()
@@ -90,9 +102,9 @@ class Tree:
 
     def birth(self, x, y) -> None:
         if x and y:
-            self.cells.append(Cell(tree=self, x=x, y=y, gen=self.genome[0]))
+            self.cells.append(Cell(simulation=self.simulation, tree=self, x=x, y=y, gen=self.genome[0]))
         else:
-            self.cells.append(Cell(tree=self, x=random.randint(5, cols-1), y=rows - 1, gen=self.genome[0]))
+            self.cells.append(Cell(simulation=self.simulation, tree=self, x=random.randint(5, cols-1), y=rows - 1, gen=self.genome[0]))
 
     def grow(self) -> None:
         cells = self.cells
@@ -107,10 +119,10 @@ class Tree:
                         continue
 
                     if i == 0:  # Верх
-                        if cell.y > 0 and not any(c.x == cell.x and c.y == cell.y - 1 for tree in self.simulation.trees for c in tree.cells):
+                        if cell.y > 0 and cell.y + 1 > 20 and not any(c.x == cell.x and c.y == cell.y - 1 for tree in self.simulation.trees for c in tree.cells):
                             can_grow = True
                             if cell.energy >= self.growth_energy:
-                                self.cells.append(Cell(tree=self, x=cell.x, y=cell.y - 1, gen=self.genome[gen[i]]))
+                                self.cells.append(Cell(simulation=self.simulation, tree=self, x=cell.x, y=cell.y - 1, gen=self.genome[gen[i]]))
                                 is_growed = True
 
                     elif i == 1:  # Ліво
@@ -118,13 +130,13 @@ class Tree:
                             if not any(c.x == cell.x - 1 and c.y == cell.y for tree in self.simulation.trees for c in tree.cells):
                                 can_grow = True
                                 if cell.energy >= self.growth_energy:
-                                    self.cells.append(Cell(tree=self, x=cell.x - 1, y=cell.y, gen=self.genome[gen[i]]))
+                                    self.cells.append(Cell(simulation=self.simulation, tree=self, x=cell.x - 1, y=cell.y, gen=self.genome[gen[i]]))
                                     is_growed = True
                         else:
                             if not any(c.x == cols - 1 and c.y == cell.y for tree in self.simulation.trees for c in tree.cells):
                                 can_grow = True
                                 if cell.energy >= self.growth_energy:
-                                    self.cells.append(Cell(tree=self, x=cols - 1, y=cell.y, gen=self.genome[gen[i]]))
+                                    self.cells.append(Cell(simulation=self.simulation, tree=self, x=cols - 1, y=cell.y, gen=self.genome[gen[i]]))
                                     is_growed = True
 
                     elif i == 2:  # Право
@@ -132,20 +144,20 @@ class Tree:
                             if not any(c.x == cell.x + 1 and c.y == cell.y for tree in self.simulation.trees for c in tree.cells):
                                 can_grow = True
                                 if cell.energy >= self.growth_energy:
-                                    self.cells.append(Cell(tree=self, x=cell.x + 1, y=cell.y, gen=self.genome[gen[i]]))
+                                    self.cells.append(Cell(simulation=self.simulation, tree=self, x=cell.x + 1, y=cell.y, gen=self.genome[gen[i]]))
                                     is_growed = True
                         else:
                             if not any(c.x == 0 and c.y == cell.y for tree in self.simulation.trees for c in tree.cells):
                                 can_grow = True
                                 if cell.energy >= self.growth_energy:
-                                    self.cells.append(Cell(tree=self, x=0, y=cell.y, gen=self.genome[gen[i]]))
+                                    self.cells.append(Cell(simulation=self.simulation, tree=self, x=0, y=cell.y, gen=self.genome[gen[i]]))
                                     is_growed = True
 
                     elif i == 3:  # Низ
                         if cell.y < rows - 1 and not any(c.x == cell.x and c.y == cell.y + 1 for tree in self.simulation.trees for c in tree.cells):
                             can_grow = True
                             if cell.energy >= self.growth_energy:
-                                self.cells.append(Cell(tree=self, x=cell.x, y=cell.y + 1, gen=self.genome[gen[i]]))
+                                self.cells.append(Cell(simulation=self.simulation, tree=self, x=cell.x, y=cell.y + 1, gen=self.genome[gen[i]]))
                                 is_growed = True
 
                 if is_growed:
@@ -170,12 +182,29 @@ class Tree:
         for cell in self.cells:
             cell.update_energy()
 
-    def check_death(self) -> None:
+    def check_first_death(self) -> None:
         if self.energy <= 0 or self.age >= self.die_age:
+            self.first_die()
+
+    def check_death(self) -> None:
+        if len(self.cells) == 0:
             self.die()
+        
+        for cell in self.cells:
+            if cell.y == rows - 1:
+                genome_copy = copy.deepcopy(self.genome[:16])
+                mutated_genome, mutated = self.mutate(genome=genome_copy)
+                die_age = self.mutate_die_age(self.die_age)
+                if mutated:
+                    self.simulation.generation += 1
+                    self.simulation.trees.append(Tree(simulation=self.simulation, x=cell.x, y=cell.y, genome=mutated_genome, die_age=die_age))
+                else:
+                    self.simulation.trees.append(Tree(simulation=self.simulation, x=cell.x, y=cell.y, genome=mutated_genome, color_gen=self.genome[16], die_age=die_age))
+                
+                self.cells.remove(cell)
 
     @staticmethod
-    def mutate(genome, chance=0.15) -> List[Tuple[int, int, int]]:
+    def mutate(genome, chance=0.25) -> List[Tuple[int, int, int]]:
         if random.random() > chance:
             return genome, 0
 
@@ -187,30 +216,37 @@ class Tree:
 
         return genome[:16], 1
 
+    @staticmethod
+    def mutate_die_age(age, chance=0.25) -> None:
+        if random.random() > chance:
+            return age
+
+        pom = random.randint(0, 1)
+        if pom == 0:
+            return age + 1
+        else:
+            return age - 1
+
     def clear(self) -> None:
         self.cells = []
         self.energy = 0
         self.age = 0
         self.simulation.trees.remove(self)
 
-    def die(self) -> None:
+    def first_die(self) -> None:
         self.cells = [cell for cell in self.cells if cell.state == '0']
+        self.state = 0
 
+    def fall_cells(self) -> None:
         for cell in self.cells:
-            while cell.y < rows - 1 and not any(c.x == cell.x and c.y == cell.y + 1 for tree in self.simulation.trees for c in tree.cells):
+            if cell.y < rows - 1 and not any(c.x == cell.x and c.y == cell.y + 1 for tree in self.simulation.trees for c in tree.cells):
                 cell.y += 1
-
-        grounded_cells = [cell for cell in self.cells if cell.y == rows - 1]
-
-        for cell in grounded_cells:
-            genome_copy = copy.deepcopy(self.genome[:16])
-            mutated_genome, mutated = self.mutate(genome=genome_copy)
-            if mutated:
-                self.simulation.generation += 1
-                self.simulation.trees.append(Tree(simulation=self.simulation, x=cell.x, y=cell.y, genome=mutated_genome))
+            elif cell.y == rows - 1:
+                pass
             else:
-                self.simulation.trees.append(Tree(simulation=self.simulation, x=cell.x, y=cell.y, genome=mutated_genome, color_gen=self.genome[16]))
+                self.cells.remove(cell)
 
+    def die(self) -> None:
         self.clear()
 
     def check_for_downtime(self) -> None:
@@ -218,12 +254,16 @@ class Tree:
             self.clear()
 
     def step(self) -> None:
-        self.age += 1
-        self.grow()
-        self.update_cells()
-        self.update_energy()
-        self.check_death()
-        self.check_for_downtime()
+        if self.state == 1:
+            self.age += 1
+            self.grow()
+            self.update_cells()
+            self.update_energy()
+            self.check_first_death()
+            self.check_for_downtime()
+        elif self.state == 0:
+            self.fall_cells()
+            self.check_death()
 
 
 class Simulation:
@@ -242,6 +282,7 @@ class Simulation:
         self.radio_x = 200
         self.generation = 0
         self.simulation_speed = 100
+        self.sun_level = 6
 
         if started_tree:
             for _ in range(started_tree):
@@ -344,15 +385,18 @@ class Simulation:
         while not tree_for_save:
             for event in pygame.event.get():
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_x, mouse_y = pygame.mouse.get_pos()
+                    if event.button == 1:
+                        mouse_x, mouse_y = pygame.mouse.get_pos()
 
-                    clicked_cell_x = mouse_x // cell_size
-                    clicked_cell_y = mouse_y // cell_size
+                        clicked_cell_x = mouse_x // cell_size
+                        clicked_cell_y = mouse_y // cell_size
 
-                    for tree in self.trees:
-                        for cell in tree.cells:
-                            if cell.x == clicked_cell_x and cell.y == clicked_cell_y:
-                                tree_for_save = tree
+                        for tree in self.trees:
+                            for cell in tree.cells:
+                                if cell.x == clicked_cell_x and cell.y == clicked_cell_y:
+                                    tree_for_save = tree
+                    elif event.button == 3:
+                        return
 
         root = tk.Tk()
         root.withdraw()
@@ -431,6 +475,8 @@ class Simulation:
                     elif self.display_mode == 'age':
                         age_color = (225 - min(205, int(tree.age * 2.5)), 225 - min(205, int(tree.age * 2.5)), 225 - min(205, int(tree.age * 2.5)))
                         pygame.draw.rect(screen, age_color, (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
+                    
+                    # cell.draw_energy(screen)
 
             self.draw_pause_button(screen)
             self.draw_speed_buttons(screen)
