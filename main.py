@@ -275,10 +275,8 @@ class Simulation:
         self.display_mode = 'normal'
         self.paused = False
         self.pause_button_rect = pygame.Rect(1200, 40, 40, 40)
-        self.save_button_rect = pygame.Rect(950, 40, 90, 40)
-        self.load_button_rect = pygame.Rect(1050, 40, 90, 40)
-        self.speed_up_button_rect = pygame.Rect(1250, 40, 40, 40)
-        self.slow_down_button_rect = pygame.Rect(1150, 40, 40, 40)
+        self.save_button_rect = pygame.Rect(480, 10, 90, 40)
+        self.load_button_rect = pygame.Rect(480, 60, 90, 40)
         self.radio_x = 200
         self.generation = 0
         self.simulation_speed = 100
@@ -289,31 +287,18 @@ class Simulation:
                 self.add_tree()
 
     def draw_pause_button(self, screen: pygame.Surface) -> None:
-        pygame.draw.rect(screen, (255, 255, 255), self.pause_button_rect, 2)
+        pygame.draw.rect(screen, (66, 66, 66), self.pause_button_rect, 2)
 
         if self.paused:
-            pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(self.pause_button_rect.x + 13.5, self.pause_button_rect.y + 10, 5, 20))
-            pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(self.pause_button_rect.x + 23.5, self.pause_button_rect.y + 10, 5, 20))
+            pygame.draw.rect(screen, (94, 149, 95), pygame.Rect(self.pause_button_rect.x + 13.5, self.pause_button_rect.y + 10, 5, 20))
+            pygame.draw.rect(screen, (94, 149, 95), pygame.Rect(self.pause_button_rect.x + 23.5, self.pause_button_rect.y + 10, 5, 20))
         else:
             points = [
                 (self.pause_button_rect.x + 12.5, self.pause_button_rect.y + 10),
                 (self.pause_button_rect.x + 30, self.pause_button_rect.y + 20),
                 (self.pause_button_rect.x + 12.5, self.pause_button_rect.y + 30)
             ]
-            pygame.draw.polygon(screen, (255, 255, 255), points)
-
-    def draw_speed_buttons(self, screen: pygame.Surface) -> None:
-        font = pygame.font.SysFont('Arial', 16)
-        pygame.draw.rect(screen, (255, 255, 255), self.speed_up_button_rect, 2)
-        speed_up_text = font.render("+", True, (255, 255, 255))
-        screen.blit(speed_up_text, (self.speed_up_button_rect.x + 14, self.speed_up_button_rect.y + 10))
-
-        pygame.draw.rect(screen, (255, 255, 255), self.slow_down_button_rect, 2)
-        slow_down_text = font.render("-", True, (255, 255, 255))
-        screen.blit(slow_down_text, (self.slow_down_button_rect.x + 18, self.slow_down_button_rect.y + 10))
-
-        speed_text = font.render(f'Speed: {(500-self.simulation_speed)/100}', True, (255, 255, 255))
-        screen.blit(speed_text, (1175, 90))
+            pygame.draw.polygon(screen, (94, 149, 95), points)
 
     def add_tree(self, genome: List[Tuple[int, int, int]] = None, x: int = None, y: int = None) -> None:
         self.trees.append(Tree(simulation=self, genome=genome, x=x, y=y))
@@ -352,20 +337,20 @@ class Simulation:
 
     def draw_radio_buttons(self, screen: pygame.Surface) -> None:
         font = pygame.font.SysFont(None, 24)
-        normal_text = font.render('Normal', True, (255, 255, 255))
-        energy_text = font.render('Energy', True, (255, 255, 255))
-        age_text = font.render('Age', True, (255, 255, 255))
+        normal_text = font.render('Normal', True, (94, 149, 95))
+        energy_text = font.render('Energy', True, (94, 149, 95))
+        age_text = font.render('Age', True, (94, 149, 95))
 
-        pygame.draw.circle(screen, (255, 255, 255), (self.radio_x, 30), 10, 1)
-        pygame.draw.circle(screen, (255, 255, 255), (self.radio_x, 60), 10, 1)
-        pygame.draw.circle(screen, (255, 255, 255), (self.radio_x, 90), 10, 1)
+        pygame.draw.circle(screen, (66, 66, 66), (self.radio_x, 30), 10, 1)
+        pygame.draw.circle(screen, (66, 66, 66), (self.radio_x, 60), 10, 1)
+        pygame.draw.circle(screen, (66, 66, 66), (self.radio_x, 90), 10, 1)
 
         if self.display_mode == 'normal':
-            pygame.draw.circle(screen, (255, 255, 255), (self.radio_x, 30), 5)
+            pygame.draw.circle(screen, (94, 149, 95), (self.radio_x, 30), 5)
         elif self.display_mode == 'energy':
-            pygame.draw.circle(screen, (255, 255, 255), (self.radio_x, 60), 5)
+            pygame.draw.circle(screen, (94, 149, 95), (self.radio_x, 60), 5)
         elif self.display_mode == 'age':
-            pygame.draw.circle(screen, (255, 255, 255), (self.radio_x, 90), 5)
+            pygame.draw.circle(screen, (94, 149, 95), (self.radio_x, 90), 5)
 
         screen.blit(normal_text, (self.radio_x + 20, 20))
         screen.blit(energy_text, (self.radio_x + 20, 50))
@@ -373,8 +358,8 @@ class Simulation:
     
     def draw_generation(self, screen: pygame.Surface) -> None:
         font = pygame.font.SysFont('Arial', 21)
-        generation_label = font.render("generation", True, (255, 255, 255))
-        generation_number = font.render(f"{self.generation}", True, (255, 255, 255))
+        generation_label = font.render("generation", True, (94, 149, 95))
+        generation_number = font.render(f"{self.generation}", True, (94, 149, 95))
 
         screen.blit(generation_label, (40, 40))
         screen.blit(generation_number, (50, 70))
@@ -444,13 +429,44 @@ class Simulation:
     def draw_buttons(self, screen):
         font = pygame.font.SysFont('Arial', 20)
 
-        pygame.draw.rect(screen, (255, 255, 255), self.save_button_rect, 2)
-        save_text = font.render("Save", True, (255, 255, 255))
-        screen.blit(save_text, (self.save_button_rect.x + 15, self.save_button_rect.y + 10))
+        pygame.draw.rect(screen, (66, 66, 66), self.save_button_rect, 2)
+        save_text = font.render("Save", True, (94, 149, 95))
+        screen.blit(save_text, (self.save_button_rect.x + 23, self.save_button_rect.y + 10))
 
-        pygame.draw.rect(screen, (255, 255, 255), self.load_button_rect, 2)
-        load_text = font.render("Load", True, (255, 255, 255))
-        screen.blit(load_text, (self.load_button_rect.x + 15, self.load_button_rect.y + 10))
+        pygame.draw.rect(screen, (66, 66, 66), self.load_button_rect, 2)
+        load_text = font.render("Load", True, (94, 149, 95))
+        screen.blit(load_text, (self.load_button_rect.x + 23, self.load_button_rect.y + 10))
+
+    def draw_speed_buttons(self, screen: pygame.Surface) -> None:
+        font = pygame.font.SysFont('Arial', 16)
+
+        pygame.draw.rect(screen, (66, 66, 66), (300, 60, 40, 40), 2)
+        slow_down_text = font.render("-", True, (94, 149, 95))
+        screen.blit(slow_down_text, (300 + 18, 60 + 10))
+
+        speed_text = font.render(f'Speed: {(500-self.simulation_speed)/100}', True, (94, 149, 95))
+        screen.blit(speed_text, (345, 70))
+
+        pygame.draw.rect(screen, (66, 66, 66), (430, 60, 40, 40), 2)
+        speed_up_text = font.render("+", True, (94, 149, 95))
+        screen.blit(speed_up_text, (430 + 15, 60 + 10))
+
+    def draw_sun_level_buttons(self, screen: pygame.Surface) -> None:
+        font = pygame.font.SysFont('Arial', 16)
+
+        pygame.draw.rect(screen, (66, 66, 66), (300, 10, 40, 40), 2)
+        minus_text = font.render("-", True, (94, 149, 95))
+        screen.blit(minus_text, (300 + 18, 10 + 10))
+
+        sun_text = font.render(f'Sun: {self.sun_level}', True, (94, 149, 95))
+        if self.sun_level < 10:
+            screen.blit(sun_text, (362, 20))
+        else:
+            screen.blit(sun_text, (359, 20))
+
+        pygame.draw.rect(screen, (66, 66, 66), (430, 10, 40, 40), 2)
+        plus_text = font.render("+", True, (94, 149, 95))
+        screen.blit(plus_text, (430 + 15, 10 + 10))  
 
     def run(self) -> None:
         running = True
@@ -461,7 +477,7 @@ class Simulation:
             for row in range(rows):
                 for col in range(cols):
                     if row in range(0, 19):
-                        pygame.draw.rect(screen, (169, 169, 169), (col * cell_size, row * cell_size, cell_size, cell_size))
+                        pygame.draw.rect(screen, (36, 36, 36), (col * cell_size, row * cell_size, cell_size, cell_size))
                     else:
                         pygame.draw.rect(screen, (0, 0, 0), (col * cell_size, row * cell_size, cell_size, cell_size), 1)
 
@@ -481,6 +497,7 @@ class Simulation:
             self.draw_pause_button(screen)
             self.draw_speed_buttons(screen)
             self.draw_buttons(screen)
+            self.draw_sun_level_buttons(screen)
 
             if self.selected_tree:
                 self.genome_window.fill((0, 0, 0))
@@ -515,10 +532,11 @@ class Simulation:
 
                     if self.pause_button_rect.collidepoint(mouse_x, mouse_y):
                         self.paused = not self.paused
-                    elif self.speed_up_button_rect.collidepoint(mouse_x, mouse_y):
-                        self.simulation_speed = max(0, self.simulation_speed - 10) 
-                    elif self.slow_down_button_rect.collidepoint(mouse_x, mouse_y):
+
+                    if 300 <= mouse_x <= 340 and 60 <= mouse_y <= 100:
                         self.simulation_speed = min(400, self.simulation_speed + 10)
+                    elif 430 <= mouse_x <= 470 and 60 <= mouse_y <= 100:
+                        self.simulation_speed = max(0, self.simulation_speed - 10) 
 
                     if self.radio_x - 10 <= mouse_x <= self.radio_x + 10 and 20 <= mouse_y <= 40:
                         self.display_mode = 'normal'
@@ -536,6 +554,11 @@ class Simulation:
                         self.paused = True
                         self.load_genome()
                         self.paused = False
+
+                    if 300 <= mouse_x <= 340 and 10 <= mouse_y <= 50:
+                        self.sun_level = max(0, self.sun_level - 1)
+                    elif 430 <= mouse_x <= 470 and 10 <= mouse_y <= 50:
+                        self.sun_level = min(16, self.sun_level + 1)
 
             if not self.paused:
                 for tree in self.trees:
