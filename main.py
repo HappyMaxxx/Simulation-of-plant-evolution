@@ -4,6 +4,7 @@ import copy
 import os
 import tkinter as tk
 from tkinter import filedialog
+from threading import Thread
 
 import pygame
 
@@ -266,6 +267,72 @@ class Tree:
             self.check_death()
 
 
+class TreeDetailsWindow:
+    def __init__(self, simulation: 'Simulation', tree: 'Tree') -> None:
+        def open_window():
+            self.simulation = simulation
+            self.tree = tree
+            self.simulation.paused = True
+            self.window = tk.Tk()
+
+            self.window.title("Tree Details")
+            self.window.geometry("540x570")
+            self.window.configure(bg='#242424')
+
+            left_frame = tk.Frame(self.window, bg='#242424')
+            left_frame.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.Y)
+
+            tk.Label(left_frame, text=f"Energy: {tree.energy} ({tree.getting_energy-tree.waste_energy})", font=("Arial", 12), bg='#242424', fg='#5E9F61').pack(pady=5)
+            tk.Label(left_frame, text=f"Getting: {tree.getting_energy} Waste: {tree.waste_energy}", font=("Arial", 12), bg='#242424', fg='#5E9F61').pack(pady=5)
+            tk.Label(left_frame, text=f"Age: {tree.age}/{tree.die_age}", font=("Arial", 12), bg='#242424', fg='#5E9F61').pack(pady=5)
+
+            right_frame = tk.Frame(self.window, bg='#242424')
+            right_frame.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.BOTH, expand=True)
+
+            tk.Label(right_frame, text="Genome:", font=("Arial", 12, "bold"), bg='#242424', fg='#5E9F61').pack(pady=5)
+
+            canvas = tk.Canvas(right_frame, width=300, height=520, bg='#333333', highlightbackground='#424242', highlightthickness=2) 
+            canvas.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+
+            self.draw_genome(canvas, self.tree.genome)
+
+            self.window.protocol("WM_DELETE_WINDOW", self.close_window)
+            self.window.mainloop()
+
+        Thread(target=open_window).start()
+
+    def close_window(self):
+        self.simulation.paused = False
+        self.window.destroy()
+
+    def draw_genome(self, canvas: tk.Canvas, genome: List[Tuple[int, int, int]]) -> None:
+        x_offset = 40
+        y_offset = 30
+        column_width = 180
+        max_genes_per_column = len(genome) // 2
+
+        for i, gene in enumerate(genome[:16]):
+            if i < max_genes_per_column:
+                col_offset = x_offset
+                gene_index = i
+            else:
+                col_offset = x_offset + column_width
+                gene_index = i - max_genes_per_column
+
+            canvas.create_text(col_offset - 30, y_offset + gene_index * 60 + 15,
+                               text=f"{i}", font=("Arial", 14), fill='#5E9F61')
+
+            gene_values = [str(g) for g in gene]
+            positions = [(col_offset + 30, y_offset + gene_index * 80),
+                         (col_offset, y_offset + gene_index * 80 + 30),
+                         (col_offset + 50, y_offset + gene_index * 80 + 30),
+                         (col_offset + 30, y_offset + gene_index * 80 + 50)]
+
+            for idx, value in enumerate(gene_values):
+                color = '#5E9F61' if value == '30' else '#FFFF00'
+                canvas.create_text(positions[idx], text=value, font=("Arial", 14), fill=color)
+
+
 class Simulation:
     def __init__(self, started_tree: int = None) -> None:
         self.trees = []
@@ -302,38 +369,6 @@ class Simulation:
 
     def add_tree(self, genome: List[Tuple[int, int, int]] = None, x: int = None, y: int = None) -> None:
         self.trees.append(Tree(simulation=self, genome=genome, x=x, y=y))
-
-    def draw_genome(self, screen: pygame.Surface, genome: List[Tuple[int, int, int]]) -> None:
-        font = pygame.font.SysFont('Arial', 20)
-        x_offset = 50
-        y_offset = 2
-        column_width = 160
-        max_genes_per_column = len(genome) // 2
-
-        for i, gene in enumerate(genome):
-            if i == 16:
-                continue
-
-            if i < max_genes_per_column:
-                col_offset = x_offset
-                gene_index = i
-            else:
-                col_offset = x_offset + column_width
-                gene_index = i - max_genes_per_column
-
-            gene_number_text = font.render(f"{i}", True, (128, 128, 128))
-            screen.blit(gene_number_text, (col_offset - 30, y_offset + gene_index * 90 + 25))
-
-            gene_values = [str(g) for g in gene]
-            positions = [(col_offset + 20, y_offset + gene_index * 90 + 20),
-                         (col_offset, y_offset + gene_index * 90 + 40),
-                         (col_offset + 40, y_offset + gene_index * 90 + 40),
-                         (col_offset + 20, y_offset + gene_index * 90 + 60)]
-
-            for idx, value in enumerate(gene_values):
-                color = (128, 128, 128) if value == '30' else (255, 255, 0)
-                gene_number_text = font.render(value, True, color)
-                screen.blit(gene_number_text, positions[idx])
 
     def draw_radio_buttons(self, screen: pygame.Surface) -> None:
         font = pygame.font.SysFont(None, 24)
@@ -552,10 +587,7 @@ class Simulation:
                     for tree in self.trees:
                         for cell in tree.cells:
                             if cell.x == clicked_cell_x and cell.y == clicked_cell_y:
-                                if self.selected_tree == tree:
-                                    self.selected_tree = None
-                                else:
-                                    self.selected_tree = tree
+                                TreeDetailsWindow(self, tree)
 
                     genome_window_rect = pygame.Rect(width - 320, 20, 300, 560)
                     if genome_window_rect.collidepoint(mouse_x, mouse_y):
