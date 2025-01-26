@@ -11,7 +11,7 @@ import pygame
 pygame.init()
 
 width, height = 1320, 540
-cell_size = 6
+cell_size = 10
 
 cols = width // cell_size
 rows = height // cell_size
@@ -57,7 +57,7 @@ class Cell:
     def draw_energy(self, screen: pygame.Surface) -> None:
         font = pygame.font.SysFont(None, 12)
         # string = f"{self.last_energy}" if self.last_energy > 0 else ''
-        string = f'{self.level}'
+        string = f'{self.last_energy}'
         energy_text = font.render(string, True, (0, 0, 0))
         screen.blit(energy_text, (self.x * cell_size + 3, self.y * cell_size + 3))
 
@@ -107,59 +107,94 @@ class Tree:
         else:
             self.cells.append(Cell(simulation=self.simulation, tree=self, x=random.randint(5, cols-1), y=rows - 1, gen=self.genome[0]))
 
+    # def grow(self) -> None:
+    #     cells = self.cells
+    #     for cell in cells:
+    #         is_growed = False
+    #         can_grow = False
+    #         if cell.state == '0':
+    #             gen = cell.gen
+
+    #             for i in range(4):
+    #                 if gen[i] == 30:
+    #                     continue
+
+    #                 if i == 0:  # Верх
+    #                     if cell.y > 0 and cell.y + 1 > 20 and not any(c.x == cell.x and c.y == cell.y - 1 for tree in self.simulation.trees for c in tree.cells):
+    #                         can_grow = True
+    #                         if cell.energy >= self.growth_energy:
+    #                             self.cells.append(Cell(simulation=self.simulation, tree=self, x=cell.x, y=cell.y - 1, gen=self.genome[gen[i]]))
+    #                             is_growed = True
+
+    #                 elif i == 1:  # Ліво
+    #                     if cell.x > 0:
+    #                         if not any(c.x == cell.x - 1 and c.y == cell.y for tree in self.simulation.trees for c in tree.cells):
+    #                             can_grow = True
+    #                             if cell.energy >= self.growth_energy:
+    #                                 self.cells.append(Cell(simulation=self.simulation, tree=self, x=cell.x - 1, y=cell.y, gen=self.genome[gen[i]]))
+    #                                 is_growed = True
+    #                     else:
+    #                         if not any(c.x == cols - 1 and c.y == cell.y for tree in self.simulation.trees for c in tree.cells):
+    #                             can_grow = True
+    #                             if cell.energy >= self.growth_energy:
+    #                                 self.cells.append(Cell(simulation=self.simulation, tree=self, x=cols - 1, y=cell.y, gen=self.genome[gen[i]]))
+    #                                 is_growed = True
+
+    #                 elif i == 2:  # Право
+    #                     if cell.x < cols - 1:
+    #                         if not any(c.x == cell.x + 1 and c.y == cell.y for tree in self.simulation.trees for c in tree.cells):
+    #                             can_grow = True
+    #                             if cell.energy >= self.growth_energy:
+    #                                 self.cells.append(Cell(simulation=self.simulation, tree=self, x=cell.x + 1, y=cell.y, gen=self.genome[gen[i]]))
+    #                                 is_growed = True
+    #                     else:
+    #                         if not any(c.x == 0 and c.y == cell.y for tree in self.simulation.trees for c in tree.cells):
+    #                             can_grow = True
+    #                             if cell.energy >= self.growth_energy:
+    #                                 self.cells.append(Cell(simulation=self.simulation, tree=self, x=0, y=cell.y, gen=self.genome[gen[i]]))
+    #                                 is_growed = True
+
+    #                 elif i == 3:  # Низ
+    #                     if cell.y < rows - 1 and not any(c.x == cell.x and c.y == cell.y + 1 for tree in self.simulation.trees for c in tree.cells):
+    #                         can_grow = True
+    #                         if cell.energy >= self.growth_energy:
+    #                             self.cells.append(Cell(simulation=self.simulation, tree=self, x=cell.x, y=cell.y + 1, gen=self.genome[gen[i]]))
+    #                             is_growed = True
+
+    #             if is_growed:
+    #                 cell.energy -= self.growth_energy
+    #                 cell.state = '1'
+
+    #             if not can_grow:
+    #                 cell.state = '1'
+    
     def grow(self) -> None:
-        cells = self.cells
-        for cell in cells:
+        for cell in self.cells:
             is_growed = False
             can_grow = False
-            if cell.state == '0':
-                gen = cell.gen
 
-                for i in range(4):
-                    if gen[i] == 30:
+            if cell.state == '0':
+                directions = [
+                    (cell.x, cell.y - 1),
+                    (cell.x - 1, cell.y),
+                    (cell.x + 1, cell.y),
+                    (cell.x, cell.y + 1)  
+                ]
+
+                for i, (new_x, new_y) in enumerate(directions):
+                    if cell.gen[i] == 30:
                         continue
 
-                    if i == 0:  # Верх
-                        if cell.y > 0 and cell.y + 1 > 20 and not any(c.x == cell.x and c.y == cell.y - 1 for tree in self.simulation.trees for c in tree.cells):
-                            can_grow = True
-                            if cell.energy >= self.growth_energy:
-                                self.cells.append(Cell(simulation=self.simulation, tree=self, x=cell.x, y=cell.y - 1, gen=self.genome[gen[i]]))
-                                is_growed = True
+                    if new_x < 0:
+                        new_x = cols - 1
+                    elif new_x >= cols:
+                        new_x = 0
 
-                    elif i == 1:  # Ліво
-                        if cell.x > 0:
-                            if not any(c.x == cell.x - 1 and c.y == cell.y for tree in self.simulation.trees for c in tree.cells):
-                                can_grow = True
-                                if cell.energy >= self.growth_energy:
-                                    self.cells.append(Cell(simulation=self.simulation, tree=self, x=cell.x - 1, y=cell.y, gen=self.genome[gen[i]]))
-                                    is_growed = True
-                        else:
-                            if not any(c.x == cols - 1 and c.y == cell.y for tree in self.simulation.trees for c in tree.cells):
-                                can_grow = True
-                                if cell.energy >= self.growth_energy:
-                                    self.cells.append(Cell(simulation=self.simulation, tree=self, x=cols - 1, y=cell.y, gen=self.genome[gen[i]]))
-                                    is_growed = True
-
-                    elif i == 2:  # Право
-                        if cell.x < cols - 1:
-                            if not any(c.x == cell.x + 1 and c.y == cell.y for tree in self.simulation.trees for c in tree.cells):
-                                can_grow = True
-                                if cell.energy >= self.growth_energy:
-                                    self.cells.append(Cell(simulation=self.simulation, tree=self, x=cell.x + 1, y=cell.y, gen=self.genome[gen[i]]))
-                                    is_growed = True
-                        else:
-                            if not any(c.x == 0 and c.y == cell.y for tree in self.simulation.trees for c in tree.cells):
-                                can_grow = True
-                                if cell.energy >= self.growth_energy:
-                                    self.cells.append(Cell(simulation=self.simulation, tree=self, x=0, y=cell.y, gen=self.genome[gen[i]]))
-                                    is_growed = True
-
-                    elif i == 3:  # Низ
-                        if cell.y < rows - 1 and not any(c.x == cell.x and c.y == cell.y + 1 for tree in self.simulation.trees for c in tree.cells):
-                            can_grow = True
-                            if cell.energy >= self.growth_energy:
-                                self.cells.append(Cell(simulation=self.simulation, tree=self, x=cell.x, y=cell.y + 1, gen=self.genome[gen[i]]))
-                                is_growed = True
+                    if 0 <= new_y < rows and not any(c.x == new_x and c.y == new_y for c in self.cells):
+                        can_grow = True
+                        if cell.energy >= self.growth_energy:
+                            self.cells.append(Cell(simulation=self.simulation, tree=self, x=new_x, y=new_y, gen=self.genome[cell.gen[i]]))
+                            is_growed = True
 
                 if is_growed:
                     cell.energy -= self.growth_energy
@@ -561,7 +596,7 @@ class Simulation:
                         age_color = (225 - min(205, int(tree.age * 2.5)), 225 - min(205, int(tree.age * 2.5)), 225 - min(205, int(tree.age * 2.5)))
                         pygame.draw.rect(screen, age_color, (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
                     
-                    # cell.draw_energy(screen)
+                    cell.draw_energy(screen)
 
             self.draw_pause_button(screen)
             self.draw_speed_buttons(screen)
