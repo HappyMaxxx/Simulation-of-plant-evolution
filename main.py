@@ -276,7 +276,7 @@ class TreeDetailsWindow:
             self.window = tk.Tk()
 
             self.window.title("Tree Details")
-            self.window.geometry("540x570")
+            self.window.geometry("530x570")
             self.window.configure(bg='#242424')
 
             left_frame = tk.Frame(self.window, bg='#242424')
@@ -301,8 +301,10 @@ class TreeDetailsWindow:
 
         Thread(target=open_window).start()
 
-    def close_window(self):
-        self.simulation.paused = False
+    def close_window(self) -> None:
+        self.simulation.tree_infos.remove(self.tree)
+        if len(self.simulation.tree_infos) == 0:
+            self.simulation.paused = False
         self.window.destroy()
 
     def draw_genome(self, canvas: tk.Canvas, genome: List[Tuple[int, int, int]]) -> None:
@@ -336,6 +338,7 @@ class TreeDetailsWindow:
 class Simulation:
     def __init__(self, started_tree: int = None) -> None:
         self.trees = []
+        self.tree_infos = []
         self.selected_tree = None
         self.genome_window = pygame.Surface((300, 560))
         self.genome_window.fill((0, 0, 0))
@@ -399,7 +402,7 @@ class Simulation:
         screen.blit(generation_label, (40, 40))
         screen.blit(generation_number, (50, 70))
 
-    def save_genome(self):
+    def save_genome(self) -> None:
         self.selected_tree = None
         tree_for_save = None
         while not tree_for_save:
@@ -429,7 +432,7 @@ class Simulation:
                 for gene in tree_for_save.genome:
                     f.write(','.join(map(str, gene)) + '\n')
 
-    def load_genome(self):
+    def load_genome(self) -> None:
         root = tk.Tk()
         root.withdraw()
         file_path = filedialog.askopenfilename(initialdir='saves', filetypes=[("Text files", "*.txt")])
@@ -461,7 +464,7 @@ class Simulation:
             
             self.add_tree(genome=genome, x=selected_cell[0], y=selected_cell[1])
 
-    def draw_buttons(self, screen):
+    def draw_buttons(self, screen: pygame.Surface) -> None:
         font = pygame.font.SysFont('Arial', 20)
 
         pygame.draw.rect(screen, (66, 66, 66), self.save_button_rect, 2)
@@ -565,11 +568,6 @@ class Simulation:
             self.draw_buttons(screen)
             self.draw_sun_level_buttons(screen)
 
-            if self.selected_tree:
-                self.genome_window.fill((0, 0, 0))
-                self.draw_genome(self.genome_window, self.selected_tree.genome)
-                screen.blit(self.genome_window, (width - 320, 20))
-
             self.draw_radio_buttons(screen)
             self.draw_generation(screen)
 
@@ -587,6 +585,7 @@ class Simulation:
                     for tree in self.trees:
                         for cell in tree.cells:
                             if cell.x == clicked_cell_x and cell.y == clicked_cell_y:
+                                self.tree_infos.append(tree)
                                 TreeDetailsWindow(self, tree)
 
                     genome_window_rect = pygame.Rect(width - 320, 20, 300, 560)
@@ -610,5 +609,5 @@ class Simulation:
         pygame.quit()
 
 
-simulation = Simulation(3)
+simulation = Simulation(started_tree=10)
 simulation.run()
