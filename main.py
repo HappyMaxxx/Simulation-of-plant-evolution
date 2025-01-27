@@ -129,7 +129,7 @@ class Tree:
                     elif new_x >= cols:
                         new_x = 0
 
-                    if 0 <= new_y < rows and new_y >= 19 and not any(c.x == new_x and c.y == new_y for c in self.cells):
+                    if 0 <= new_y < rows and new_y >= 19 and not any(c.x == new_x and c.y == new_y for tree in self.simulation.trees for c in tree.cells):
                         can_grow = True
                         if cell.energy >= self.growth_energy:
                             self.cells.append(Cell(simulation=self.simulation, tree=self, x=new_x, y=new_y, gen=self.genome[cell.gen[i]]))
