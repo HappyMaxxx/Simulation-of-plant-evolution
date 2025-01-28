@@ -6,7 +6,7 @@ from tkinter import filedialog
 pygame.init()
 
 width, height = 1000, 600
-cell_size = 10
+cell_size = 12
 cols, rows = (width - 200) // cell_size, height // cell_size
 screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption("Tree Growth Visualizer")
@@ -164,15 +164,28 @@ def draw_genome(genome):
 
         y_offset += CELL_SIZE
 
-def draw_tree(tree, display_mode):
+def draw_tree(tree, display_mode, cell_info_mode, wood_info_mode):
     gen_font = pygame.font.SysFont('Arial', 8)
 
     for cell in tree.cells:
         if display_mode == 'normal':
             x, y, color, gen_index = cell.x, cell.y, TREE_COLOR if cell.state == 1 else GROWING_COLOR, cell.gen_index
             pygame.draw.rect(screen, color, (x * cell_size, y * cell_size, cell_size, cell_size))
-            # if color == GROWING_COLOR:
-            gene_text = gen_font.render(str(cell.last_energy), True, (0, 0, 0))
+            if color == GROWING_COLOR:
+                if cell_info_mode == 'none':
+                    gene_text = gen_font.render('', True, (0, 0, 0))
+                elif cell_info_mode == 'energy':
+                    gene_text = gen_font.render(str(cell.last_energy), True, (0, 0, 0))
+                elif cell_info_mode == 'gen':
+                    gene_text = gen_font.render(str(cell.gen_index), True, (0, 0, 0))
+            elif color == TREE_COLOR:
+                if wood_info_mode == 'none':
+                    gene_text = gen_font.render('', True, (0, 0, 0))
+                elif wood_info_mode == 'energy':
+                    gene_text = gen_font.render(str(cell.last_energy), True, (0, 0, 0))
+                elif wood_info_mode == 'gen':
+                    gene_text = gen_font.render(str(cell.gen_index), True, (0, 0, 0))
+
             screen.blit(gene_text, (x * cell_size + cell_size // 4, y * cell_size + cell_size // 4))
         elif display_mode == 'energy':
             energy_color = (min(255, int(cell.last_energy * 10) + 50), 0, 0)
@@ -199,13 +212,72 @@ def draw_radio_buttons(screen, display_mode):
         screen.blit(normal_text, (width - 185 + 15, 527))
         screen.blit(energy_text, (width - 105 + 25, 527))
 
+def draw_radio_buttons_cell_info(screen, info_mode):
+    radio_x = 710
+
+    font = pygame.font.SysFont(None, 24)
+    normal_text = font.render('None', True, (255, 255, 255))
+    energy_text = font.render('Energy', True, (255, 255, 255))
+    gen_text = font.render('Gen', True, (255, 255, 255))
+
+    pygame.draw.circle(screen, (255, 255, 255), (radio_x, 20), 10, 1)
+    pygame.draw.circle(screen, (255, 255, 255), (radio_x, 50), 10, 1)
+    pygame.draw.circle(screen, (255, 255, 255), (radio_x, 80), 10, 1)
+
+    if info_mode == 'none':
+        pygame.draw.circle(screen, (255, 255, 255), (radio_x, 20), 5)
+    elif info_mode == 'energy':
+        pygame.draw.circle(screen, (255, 255, 255), (radio_x, 50), 5)
+    elif info_mode == 'gen':
+        pygame.draw.circle(screen, (255, 255, 255), (radio_x, 80), 5)
+
+    screen.blit(normal_text, (radio_x + 20, 12))
+    screen.blit(energy_text, (radio_x + 20, 42))
+    screen.blit(gen_text, (radio_x + 20, 72))
+
+def draw_type_radio(screen, info_type):
+    radio_x = 610
+
+    font = pygame.font.SysFont(None, 24)
+    seed_text = font.render('Seed', True, (255, 255, 255))
+    wood_text = font.render('Wood', True, (255, 255, 255))
+
+    pygame.draw.circle(screen, (255, 255, 255), (radio_x, 20), 10, 1)
+    pygame.draw.circle(screen, (255, 255, 255), (radio_x, 50), 10, 1)
+
+    if  info_type == 'seed':
+        pygame.draw.circle(screen, (255, 255, 255), (radio_x, 20), 5)
+    elif info_type == 'wood':
+        pygame.draw.circle(screen, (255, 255, 255), (radio_x, 50), 5)
+
+    screen.blit(seed_text, (radio_x + 20, 12))
+    screen.blit(wood_text, (radio_x + 20, 42))
+
+def handle_radio_buttons_type(mouse_x: int, mouse_y: int, info_type):
+    if 600 <= mouse_x <= 620 and 10 <= mouse_y <= 30:
+        return 'seed' if info_type != 'seed' else 'wood'
+    elif 600 <= mouse_x <= 620 and 40 <= mouse_y <= 60:
+        return 'wood' if info_type != 'wood' else 'seed'
+    
+    return info_type
+
+def handle_radio_buttons_cell_info(mouse_x: int, mouse_y: int, info_mode):
+    if 700 <= mouse_x <= 720 and 10 <= mouse_y <= 30:
+        return 'none'
+    elif 700 <= mouse_x <= 720 and 40 <= mouse_y <= 60:
+        return 'energy' if info_mode != 'energy' else 'none'
+    elif 700 <= mouse_x <= 720 and 70 <= mouse_y <= 90:
+        return 'gen' if info_mode != 'gen' else 'none'
+    
+    return info_mode
+
 def handle_radio_buttons(mouse_x: int, mouse_y: int, display_mode):
-        if width - 185 - 10 <= mouse_x <= width - 185 + 10 and 525 <= mouse_y <= 545:
-            return 'normal'
-        elif width - 95 - 10 <= mouse_x <= width - 95 + 10  and 525 <= mouse_y <= 545:
-            return 'energy' if display_mode != 'energy' else 'normal'
-        
-        return display_mode
+    if width - 185 - 10 <= mouse_x <= width - 185 + 10 and 525 <= mouse_y <= 545:
+        return 'normal'
+    elif width - 95 - 10 <= mouse_x <= width - 95 + 10  and 525 <= mouse_y <= 545:
+        return 'energy' if display_mode != 'energy' else 'normal'
+    
+    return display_mode
 
 def draw_info(tree):
     font = pygame.font.SysFont('Arial', 18)
@@ -222,6 +294,9 @@ def main():
     tree = Tree()
     step_mode = False
     display_mode = 'normal'
+    info_type = 'seed'
+    seed_info_mode = 'none'
+    wood_info_mode = 'none'
 
     tree.genome = load_file()
     if not tree.genome:
@@ -234,11 +309,15 @@ def main():
     while running:
         screen.fill(BG_COLOR)
         draw_grid()
-        draw_tree(tree, display_mode)
+        draw_tree(tree, display_mode, seed_info_mode, wood_info_mode)
         draw_genome(tree.genome)
         draw_step_button()
         draw_radio_buttons(screen, display_mode)
-
+        draw_type_radio(screen, info_type)
+        if info_type == 'seed':
+            draw_radio_buttons_cell_info(screen, seed_info_mode)
+        elif info_type == 'wood':
+            draw_radio_buttons_cell_info(screen, wood_info_mode)
         draw_info(tree)
 
         for event in pygame.event.get():
@@ -252,8 +331,18 @@ def main():
                 
                 display_mode = handle_radio_buttons(mouse_x, mouse_y, display_mode)
 
+                if info_type == 'seed':
+                    seed_info_mode = handle_radio_buttons_cell_info(mouse_x, mouse_y, seed_info_mode)
+                elif info_type == 'wood':
+                    wood_info_mode = handle_radio_buttons_cell_info(mouse_x, mouse_y, wood_info_mode)
+
+                info_type = handle_radio_buttons_type(mouse_x, mouse_y, info_type)
+
         if step_mode:
-            tree.step()
+            if tree.energy <= 0:
+                pass
+            else:
+                tree.step()
             step_mode = False
 
         pygame.display.flip()
