@@ -11,7 +11,7 @@ import pygame
 pygame.init()
 
 width, height = 1320, 540
-cell_size = 7
+cell_size = 6
 
 cols = width // cell_size
 rows = height // cell_size
@@ -56,8 +56,7 @@ class Cell:
 
     def draw_energy(self, screen: pygame.Surface) -> None:
         font = pygame.font.SysFont(None, 12)
-        # string = f"{self.last_energy}" if self.last_energy > 0 else ''
-        string = f'{self.last_energy}'
+        string = f'{self.gen_number}'
         energy_text = font.render(string, True, (0, 0, 0))
         screen.blit(energy_text, (self.x * cell_size + 3, self.y * cell_size + 3))
 
@@ -130,7 +129,7 @@ class Tree:
                         new_x = 0
 
                     if 0 <= new_y < rows and new_y >= 19 and not any(c.x == new_x and c.y == new_y for tree in self.simulation.trees for c in tree.cells):
-                        can_grow = True
+                        can_grow = True 
                         if cell.energy >= self.growth_energy:
                             self.cells.append(Cell(simulation=self.simulation, tree=self, x=new_x, y=new_y, gen=self.genome[cell.gen[i]]))
                             is_growed = True
@@ -157,26 +156,27 @@ class Tree:
         for cell in self.cells:
             cell.update_energy()
 
-    def check_first_death(self) -> None:
-        if self.energy <= 0 or self.age >= self.die_age:
-            self.first_die()
-
     def check_death(self) -> None:
-        if len(self.cells) == 0:
-            self.die()
-        
-        for cell in self.cells:
-            if cell.y == rows - 1:
-                genome_copy = copy.deepcopy(self.genome[:16])
-                mutated_genome, mutated = self.mutate(genome=genome_copy)
-                die_age = self.mutate_die_age(self.die_age)
-                if mutated:
-                    self.simulation.generation += 1
-                    self.simulation.trees.append(Tree(simulation=self.simulation, x=cell.x, y=cell.y, genome=mutated_genome, die_age=die_age))
-                else:
-                    self.simulation.trees.append(Tree(simulation=self.simulation, x=cell.x, y=cell.y, genome=mutated_genome, color_gen=self.genome[16], die_age=die_age))
-                
-                self.cells.remove(cell)
+        if self.state == 1:
+            if self.energy <= 0 or self.age >= self.die_age:
+                self.cells = [cell for cell in self.cells if cell.state == '0']
+                self.state = 0
+        elif self.state == 0:
+            if len(self.cells) == 0:
+                self.die()
+            
+            for cell in self.cells:
+                if cell.y == rows - 1:
+                    genome_copy = copy.deepcopy(self.genome[:16])
+                    mutated_genome, mutated = self.mutate(genome=genome_copy)
+                    die_age = self.mutate_die_age(self.die_age)
+                    if mutated:
+                        self.simulation.generation += 1
+                        self.simulation.trees.append(Tree(simulation=self.simulation, x=cell.x, y=cell.y, genome=mutated_genome, die_age=die_age))
+                    else:
+                        self.simulation.trees.append(Tree(simulation=self.simulation, x=cell.x, y=cell.y, genome=mutated_genome, color_gen=self.genome[16], die_age=die_age))
+                    
+                    self.cells.remove(cell)
 
     @staticmethod
     def mutate(genome, chance=0.25) -> List[Tuple[int, int, int]]:
@@ -202,15 +202,11 @@ class Tree:
         else:
             return age - 1
 
-    def clear(self) -> None:
+    def die(self) -> None:
         self.cells = []
         self.energy = 0
         self.age = 0
         self.simulation.trees.remove(self)
-
-    def first_die(self) -> None:
-        self.cells = [cell for cell in self.cells if cell.state == '0']
-        self.state = 0
 
     def fall_cells(self) -> None:
         for cell in self.cells:
@@ -221,12 +217,9 @@ class Tree:
             else:
                 self.cells.remove(cell)
 
-    def die(self) -> None:
-        self.clear()
-
     def check_for_downtime(self) -> None:
         if len(self.cells) == 1 and self.age >= 5:
-            self.clear()
+            self.die()
 
     def step(self) -> None:
         if self.state == 1:
@@ -234,7 +227,7 @@ class Tree:
             self.grow()
             self.update_cells()
             self.update_energy()
-            self.check_first_death()
+            self.check_death()
             self.check_for_downtime()
         elif self.state == 0:
             self.fall_cells()
@@ -261,7 +254,7 @@ class TreeDetailsWindow:
             tk.Label(left_frame, text=f"Age: {tree.age}/{tree.die_age}", font=("Arial", 12), bg='#242424', fg='#5E9F61').pack(pady=5)
 
             right_frame = tk.Frame(self.window, bg='#242424')
-            right_frame.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.BOTH, expand=True)
+            right_frame.pack(side=tk.LEFT, padx=0, pady=10, fill=tk.BOTH, expand=True)
 
             tk.Label(right_frame, text="Genome:", font=("Arial", 12, "bold"), bg='#242424', fg='#5E9F61').pack(pady=5)
 
@@ -309,72 +302,172 @@ class TreeDetailsWindow:
                 canvas.create_text(positions[idx], text=value, font=("Arial", 14), fill=color)
 
 
-class Simulation:
-    def __init__(self, started_tree: int = None) -> None:
-        self.trees = []
-        self.tree_infos = []
-        self.selected_tree = None
-        self.genome_window = pygame.Surface((300, 560))
-        self.genome_window.fill((0, 0, 0))
-        self.display_mode = 'normal'
-        self.paused = False
+class UI:
+    def __init__(self, simulation: 'Simulation') -> None:
+        self.simulation = simulation
         self.pause_button_rect = pygame.Rect(1200, 40, 40, 40)
         self.save_button_rect = pygame.Rect(480, 10, 90, 40)
         self.load_button_rect = pygame.Rect(480, 60, 90, 40)
         self.radio_x = 200
-        self.generation = 0
-        self.simulation_speed = 100
-        self.sun_level = 6
+        self.font = pygame.font.SysFont('Arial', 20)
+        self.icon_color = (94, 149, 95)
+        self.bg_color = (66, 66, 66)
 
-        if started_tree:
-            for _ in range(started_tree):
-                self.add_tree()
+    def draw_button(self, screen, rect, text, offset_x=0, offset_y=0) -> None:
+        pygame.draw.rect(screen, self.bg_color, rect, 2)
+        rendered_text = self.font.render(text, True, self.icon_color)
+        screen.blit(rendered_text, (rect.x + offset_x, rect.y + offset_y))
 
     def draw_pause_button(self, screen: pygame.Surface) -> None:
-        pygame.draw.rect(screen, (66, 66, 66), self.pause_button_rect, 2)
+        pygame.draw.rect(screen, self.bg_color, self.pause_button_rect, 2)
 
-        if self.paused:
-            pygame.draw.rect(screen, (94, 149, 95), pygame.Rect(self.pause_button_rect.x + 13.5, self.pause_button_rect.y + 10, 5, 20))
-            pygame.draw.rect(screen, (94, 149, 95), pygame.Rect(self.pause_button_rect.x + 23.5, self.pause_button_rect.y + 10, 5, 20))
+        if self.simulation.paused:
+            pygame.draw.rect(screen, self.icon_color, pygame.Rect(self.pause_button_rect.x + 13.5, self.pause_button_rect.y + 10, 5, 20))
+            pygame.draw.rect(screen, self.icon_color, pygame.Rect(self.pause_button_rect.x + 23.5, self.pause_button_rect.y + 10, 5, 20))
         else:
             points = [
                 (self.pause_button_rect.x + 12.5, self.pause_button_rect.y + 10),
                 (self.pause_button_rect.x + 30, self.pause_button_rect.y + 20),
                 (self.pause_button_rect.x + 12.5, self.pause_button_rect.y + 30)
             ]
-            pygame.draw.polygon(screen, (94, 149, 95), points)
-
-    def add_tree(self, genome: List[Tuple[int, int, int]] = None, x: int = None, y: int = None) -> None:
-        self.trees.append(Tree(simulation=self, genome=genome, x=x, y=y))
+            pygame.draw.polygon(screen, self.icon_color, points)
 
     def draw_radio_buttons(self, screen: pygame.Surface) -> None:
-        font = pygame.font.SysFont(None, 24)
-        normal_text = font.render('Normal', True, (94, 149, 95))
-        energy_text = font.render('Energy', True, (94, 149, 95))
-        age_text = font.render('Age', True, (94, 149, 95))
+        options = ['Normal', 'Energy', 'Age']
+        for i, option in enumerate(options):
+            y_pos = 30 + (i * 30)
+            pygame.draw.circle(screen, self.bg_color, (self.radio_x, y_pos), 10, 1)
 
-        pygame.draw.circle(screen, (66, 66, 66), (self.radio_x, 30), 10, 1)
-        pygame.draw.circle(screen, (66, 66, 66), (self.radio_x, 60), 10, 1)
-        pygame.draw.circle(screen, (66, 66, 66), (self.radio_x, 90), 10, 1)
+            if self.simulation.display_mode == option.lower():
+                pygame.draw.circle(screen, self.icon_color, (self.radio_x, y_pos), 5)
 
-        if self.display_mode == 'normal':
-            pygame.draw.circle(screen, (94, 149, 95), (self.radio_x, 30), 5)
-        elif self.display_mode == 'energy':
-            pygame.draw.circle(screen, (94, 149, 95), (self.radio_x, 60), 5)
-        elif self.display_mode == 'age':
-            pygame.draw.circle(screen, (94, 149, 95), (self.radio_x, 90), 5)
+            label_text = self.font.render(option, True, self.icon_color)
+            screen.blit(label_text, (self.radio_x + 20, y_pos - 10))
 
-        screen.blit(normal_text, (self.radio_x + 20, 20))
-        screen.blit(energy_text, (self.radio_x + 20, 50))
-        screen.blit(age_text, (self.radio_x + 20, 80))
-    
     def draw_generation(self, screen: pygame.Surface) -> None:
         font = pygame.font.SysFont('Arial', 21)
-        generation_label = font.render("generation", True, (94, 149, 95))
-        generation_number = font.render(f"{self.generation}", True, (94, 149, 95))
+        generation_label = font.render("generation", True, self.icon_color)
+        generation_number = font.render(f"{self.simulation.generation}", True, self.icon_color)
 
         screen.blit(generation_label, (40, 40))
         screen.blit(generation_number, (50, 70))
+
+    def draw_buttons(self, screen: pygame.Surface) -> None:
+        self.draw_button(screen, self.save_button_rect, "Save", 23, 10)
+        self.draw_button(screen, self.load_button_rect, "Load", 23, 10)
+
+    def draw_speed_buttons(self, screen: pygame.Surface) -> None:
+        font = pygame.font.SysFont('Arial', 16)
+        self.draw_button(screen, pygame.Rect(300, 60, 40, 40), "-", 18, 10)
+        speed_text = font.render(f'Speed: {(500-self.simulation.simulation_speed)/100}', True, self.icon_color)
+        screen.blit(speed_text, (345, 70))
+        self.draw_button(screen, pygame.Rect(430, 60, 40, 40), "+", 15, 10)
+
+    def draw_sun_level_buttons(self, screen: pygame.Surface) -> None:
+        font = pygame.font.SysFont('Arial', 16)
+        self.draw_button(screen, pygame.Rect(300, 10, 40, 40), "-", 18, 10)
+        sun_text = font.render(f'Sun: {self.simulation.sun_level}', True, self.icon_color)
+        screen.blit(sun_text, (362 if self.simulation.sun_level < 10 else 359, 20))
+        self.draw_button(screen, pygame.Rect(430, 10, 40, 40), "+", 15, 10)
+
+    def draw_field(self, screen: pygame.Surface) -> None:
+        for row in range(rows):
+            for col in range(cols):
+                color = (36, 36, 36) if row < 19 else (0, 0, 0)
+                pygame.draw.rect(screen, color, (col * cell_size, row * cell_size, cell_size, cell_size), 1 if row >= 19 else 0)
+
+    def draw(self, screen: pygame.Surface) -> None:
+        self.draw_field(screen)
+        self.draw_pause_button(screen)
+        self.draw_buttons(screen)
+        self.draw_speed_buttons(screen)
+        self.draw_sun_level_buttons(screen)
+        self.draw_radio_buttons(screen)
+        self.draw_generation(screen)
+
+
+class EventHandler:
+    def __init__(self, simulation: 'Simulation') -> None:
+        self.simulation = simulation
+        self.ui = self.simulation.ui
+
+    def handle_sun_level_buttons(self, mouse_x: int, mouse_y: int) -> None:
+        if 300 <= mouse_x <= 340 and 10 <= mouse_y <= 50:
+            self.simulation.sun_level = max(0, self.simulation.sun_level - 1)
+        elif 430 <= mouse_x <= 470 and 10 <= mouse_y <= 50:
+            self.simulation.sun_level = min(16, self.simulation.sun_level + 1)
+
+    def handle_save_load_buttons(self, mouse_x: int, mouse_y: int) -> None:
+        if self.ui.save_button_rect.collidepoint(mouse_x, mouse_y):
+            self.simulation.paused = True
+            self.simulation.save_genome()
+            self.simulation.paused = False
+
+        elif self.ui.load_button_rect.collidepoint(mouse_x, mouse_y):
+            self.simulation.paused = True
+            self.simulation.load_genome()
+            self.simulation.paused = False
+
+    def handle_speed_buttons(self, mouse_x: int, mouse_y: int) -> None:
+        if 300 <= mouse_x <= 340 and 60 <= mouse_y <= 100:
+            self.simulation.simulation_speed = min(400, self.simulation.simulation_speed + 10)
+        elif 430 <= mouse_x <= 470 and 60 <= mouse_y <= 100:
+            self.simulation.simulation_speed = max(0, self.simulation.simulation_speed - 10) 
+
+    def handle_radio_buttons(self, mouse_x: int, mouse_y: int) -> None:
+        if self.ui.radio_x - 10 <= mouse_x <= self.ui.radio_x + 10 and 20 <= mouse_y <= 40:
+            self.simulation.display_mode = 'normal'
+        elif self.ui.radio_x - 10 <= mouse_x <= self.ui.radio_x + 10  and 50 <= mouse_y <= 70:
+            self.simulation.display_mode = 'energy' if self.simulation.display_mode != 'energy' else 'normal'
+        elif self.ui.radio_x - 10 <= mouse_x <= self.ui.radio_x + 10  and 80 <= mouse_y <= 100:
+            self.simulation.display_mode = 'age' if self.simulation.display_mode != 'age' else 'normal'
+
+    def handle_pause_button(self, mouse_x: int, mouse_y: int) -> None:
+        if self.ui.pause_button_rect.collidepoint(mouse_x, mouse_y):
+            self.simulation.paused = not self.simulation.paused
+
+    def handle_events(self):
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    os._exit(0)
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_x, mouse_y = pygame.mouse.get_pos()
+
+                    self.handle_pause_button(mouse_x, mouse_y)
+                    self.handle_radio_buttons(mouse_x, mouse_y)
+                    self.handle_speed_buttons(mouse_x, mouse_y)
+                    self.handle_save_load_buttons(mouse_x, mouse_y)
+                    self.handle_sun_level_buttons(mouse_x, mouse_y)
+
+                    cell_x = mouse_x // cell_size
+                    cell_y = mouse_y // cell_size
+
+                    for tree in self.simulation.trees:
+                        for cell in tree.cells:
+                            if cell.x == cell_x and cell.y == cell_y:
+                                TreeDetailsWindow(simulation=self.simulation, tree=tree)
+                                self.simulation.tree_infos.append(tree)
+
+
+class Simulation:
+    def __init__(self, started_tree: int = None) -> None:
+        self.trees = []
+        self.tree_infos = []
+        self.display_mode = 'normal'
+        self.paused = False
+        self.generation = 0
+        self.simulation_speed = 100
+        self.sun_level = 6
+        self.ui = UI(self)
+
+        if started_tree:
+            for _ in range(started_tree):
+                self.add_tree()
+
+    def add_tree(self, genome: List[Tuple[int, int, int]] = None, x: int = None, y: int = None) -> None:
+        self.trees.append(Tree(simulation=self, genome=genome, x=x, y=y))
 
     def save_genome(self) -> None:
         self.selected_tree = None
@@ -436,143 +529,34 @@ class Simulation:
                         if free_space:
                             selected_cell = (clicked_cell_x, clicked_cell_y)
             
-            self.add_tree(genome=genome, x=selected_cell[0], y=selected_cell[1])
+            self.add_tree(genome=genome, x=selected_cell[0], y=selected_cell[1])  
 
-    def draw_buttons(self, screen: pygame.Surface) -> None:
-        font = pygame.font.SysFont('Arial', 20)
-
-        pygame.draw.rect(screen, (66, 66, 66), self.save_button_rect, 2)
-        save_text = font.render("Save", True, (94, 149, 95))
-        screen.blit(save_text, (self.save_button_rect.x + 23, self.save_button_rect.y + 10))
-
-        pygame.draw.rect(screen, (66, 66, 66), self.load_button_rect, 2)
-        load_text = font.render("Load", True, (94, 149, 95))
-        screen.blit(load_text, (self.load_button_rect.x + 23, self.load_button_rect.y + 10))
-
-    def draw_speed_buttons(self, screen: pygame.Surface) -> None:
-        font = pygame.font.SysFont('Arial', 16)
-
-        pygame.draw.rect(screen, (66, 66, 66), (300, 60, 40, 40), 2)
-        slow_down_text = font.render("-", True, (94, 149, 95))
-        screen.blit(slow_down_text, (300 + 18, 60 + 10))
-
-        speed_text = font.render(f'Speed: {(500-self.simulation_speed)/100}', True, (94, 149, 95))
-        screen.blit(speed_text, (345, 70))
-
-        pygame.draw.rect(screen, (66, 66, 66), (430, 60, 40, 40), 2)
-        speed_up_text = font.render("+", True, (94, 149, 95))
-        screen.blit(speed_up_text, (430 + 15, 60 + 10))
-
-    def draw_sun_level_buttons(self, screen: pygame.Surface) -> None:
-        font = pygame.font.SysFont('Arial', 16)
-
-        pygame.draw.rect(screen, (66, 66, 66), (300, 10, 40, 40), 2)
-        minus_text = font.render("-", True, (94, 149, 95))
-        screen.blit(minus_text, (300 + 18, 10 + 10))
-
-        sun_text = font.render(f'Sun: {self.sun_level}', True, (94, 149, 95))
-        if self.sun_level < 10:
-            screen.blit(sun_text, (362, 20))
-        else:
-            screen.blit(sun_text, (359, 20))
-
-        pygame.draw.rect(screen, (66, 66, 66), (430, 10, 40, 40), 2)
-        plus_text = font.render("+", True, (94, 149, 95))
-        screen.blit(plus_text, (430 + 15, 10 + 10))  
-
-    def handle_sun_level_buttons(self, mouse_x: int, mouse_y: int) -> None:
-        if 300 <= mouse_x <= 340 and 10 <= mouse_y <= 50:
-            self.sun_level = max(0, self.sun_level - 1)
-        elif 430 <= mouse_x <= 470 and 10 <= mouse_y <= 50:
-            self.sun_level = min(16, self.sun_level + 1)
-
-    def handle_save_load_buttons(self, mouse_x: int, mouse_y: int) -> None:
-        if self.save_button_rect.collidepoint(mouse_x, mouse_y):
-            self.paused = True
-            self.save_genome()
-            self.paused = False
-
-        elif self.load_button_rect.collidepoint(mouse_x, mouse_y):
-            self.paused = True
-            self.load_genome()
-            self.paused = False
-
-    def handle_speed_buttons(self, mouse_x: int, mouse_y: int) -> None:
-        if 300 <= mouse_x <= 340 and 60 <= mouse_y <= 100:
-            self.simulation_speed = min(400, self.simulation_speed + 10)
-        elif 430 <= mouse_x <= 470 and 60 <= mouse_y <= 100:
-            self.simulation_speed = max(0, self.simulation_speed - 10) 
-
-    def handle_radio_buttons(self, mouse_x: int, mouse_y: int) -> None:
-        if self.radio_x - 10 <= mouse_x <= self.radio_x + 10 and 20 <= mouse_y <= 40:
-            self.display_mode = 'normal'
-        elif self.radio_x - 10 <= mouse_x <= self.radio_x + 10  and 50 <= mouse_y <= 70:
-            self.display_mode = 'energy' if self.display_mode != 'energy' else 'normal'
-        elif self.radio_x - 10 <= mouse_x <= self.radio_x + 10  and 80 <= mouse_y <= 100:
-            self.display_mode = 'age' if self.display_mode != 'age' else 'normal'
-
-    def run(self) -> None:
+    def run(self):
         running = True
+
+        event_handler = EventHandler(self)
+
+        event_thread = Thread(target=event_handler.handle_events, daemon=True)
+        event_thread.start()
 
         while running:
             screen.fill((0, 0, 0))
 
-            for row in range(rows):
-                for col in range(cols):
-                    if row in range(0, 19):
-                        pygame.draw.rect(screen, (36, 36, 36), (col * cell_size, row * cell_size, cell_size, cell_size))
-                    else:
-                        pygame.draw.rect(screen, (0, 0, 0), (col * cell_size, row * cell_size, cell_size, cell_size), 1)
+            self.ui.draw(screen)
 
             for tree in self.trees:
                 for cell in tree.cells:
                     if self.display_mode == 'normal':
-                        pygame.draw.rect(screen, tree.genome[16] if cell.state == '1' else (240, 248, 255), (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
+                        pygame.draw.rect(screen, tree.genome[16] if cell.state == '1' else (240, 248, 255), 
+                                         (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
                     elif self.display_mode == 'energy':
                         energy_color = (min(255, int(cell.last_energy * 10) + 50), 0, 0)
                         pygame.draw.rect(screen, energy_color, (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
                     elif self.display_mode == 'age':
                         age_color = (225 - min(205, int(tree.age * 2.5)), 225 - min(205, int(tree.age * 2.5)), 225 - min(205, int(tree.age * 2.5)))
                         pygame.draw.rect(screen, age_color, (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
-                    
-                    # cell.draw_energy(screen)
-
-            self.draw_pause_button(screen)
-            self.draw_speed_buttons(screen)
-            self.draw_buttons(screen)
-            self.draw_sun_level_buttons(screen)
-
-            self.draw_radio_buttons(screen)
-            self.draw_generation(screen)
 
             pygame.display.flip()
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_x, mouse_y = pygame.mouse.get_pos()
-
-                    clicked_cell_x = mouse_x // cell_size
-                    clicked_cell_y = mouse_y // cell_size
-
-                    for tree in self.trees:
-                        for cell in tree.cells:
-                            if cell.x == clicked_cell_x and cell.y == clicked_cell_y:
-                                self.tree_infos.append(tree)
-                                TreeDetailsWindow(self, tree)
-
-                    genome_window_rect = pygame.Rect(width - 320, 20, 300, 560)
-                    if genome_window_rect.collidepoint(mouse_x, mouse_y):
-                        self.selected_tree = None
-
-                    if self.pause_button_rect.collidepoint(mouse_x, mouse_y):
-                        self.paused = not self.paused
-
-                    self.handle_radio_buttons(mouse_x, mouse_y)
-                    self.handle_speed_buttons(mouse_x, mouse_y)
-                    self.handle_save_load_buttons(mouse_x, mouse_y)
-                    self.handle_sun_level_buttons(mouse_x, mouse_y)
 
             if not self.paused:
                 for tree in self.trees:
@@ -581,7 +565,6 @@ class Simulation:
             pygame.time.delay(self.simulation_speed)
 
         pygame.quit()
-
 
 simulation = Simulation(started_tree=10)
 simulation.run()
