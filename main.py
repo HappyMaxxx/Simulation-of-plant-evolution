@@ -5,6 +5,7 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 from threading import Thread
+import sys
 
 from settings import *
 
@@ -312,6 +313,7 @@ class UI:
     def __init__(self, simulation: 'Simulation') -> None:
         self.simulation = simulation
         self.pause_button_rect = pygame.Rect(1200, 40, 40, 40)
+        self.exit_button_rect = pygame.Rect(1250, 40, 40, 40)
         self.save_button_rect = pygame.Rect(480, 10, 90, 40)
         self.load_button_rect = pygame.Rect(480, 60, 90, 40)
         self.radio_x = 200
@@ -339,7 +341,22 @@ class UI:
                 (self.pause_button_rect.x + 12.5, self.pause_button_rect.y + 30)
             ]
             pygame.draw.polygon(screen, self.icon_color, points)
+    
+    def draw_exit_button(self) -> None:
+        pygame.draw.rect(screen, self.bg_color, self.exit_button_rect, 2)
 
+        center_x = self.exit_button_rect.x + self.exit_button_rect.width // 2
+        center_y = self.exit_button_rect.y + self.exit_button_rect.height // 2
+
+        pygame.draw.line(screen, self.icon_color,
+                        (center_x - 10, center_y - 10),
+                        (center_x + 10, center_y + 10), 3)
+        pygame.draw.line(screen, self.icon_color,
+                        (center_x - 10, center_y + 10),
+                        (center_x + 10, center_y - 10), 3)
+
+        pygame.draw.rect(screen, self.bg_color, self.exit_button_rect, 2)
+        
     def draw_radio_buttons(self) -> None:
         options = ['Normal', 'Energy', 'Family']
         for i, option in enumerate(options):
@@ -387,6 +404,7 @@ class UI:
     def draw(self) -> None:
         self.draw_field()
         self.draw_pause_button()
+        self.draw_exit_button()
         self.draw_buttons()
         self.draw_speed_buttons()
         self.draw_sun_level_buttons()
@@ -434,16 +452,23 @@ class EventHandler:
         if self.ui.pause_button_rect.collidepoint(mouse_x, mouse_y):
             self.simulation.paused = not self.simulation.paused
 
+    def handle_exit_button(self, mouse_x: int, mouse_y: int) -> None:
+        if self.ui.exit_button_rect.collidepoint(mouse_x, mouse_y):
+            self.simulation.running = False
+            pygame.quit()
+            sys.exit()
+
     def handle_events(self):
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
-                    os._exit(0)
+                    sys.exit()
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     mouse_x, mouse_y = pygame.mouse.get_pos()
 
                     self.handle_pause_button(mouse_x, mouse_y)
+                    self.handle_exit_button(mouse_x, mouse_y)
                     self.handle_radio_buttons(mouse_x, mouse_y)
                     self.handle_speed_buttons(mouse_x, mouse_y)
                     self.handle_save_load_buttons(mouse_x, mouse_y)
@@ -474,6 +499,7 @@ class EventHandler:
 
 class Simulation:
     def __init__(self, started_tree: int = None) -> None:
+        self.running = True
         self.trees = []
         self.tree_infos = []
         self.display_mode = 'normal'
@@ -555,14 +581,12 @@ class Simulation:
             self.add_tree(genome=genome, x=selected_cell[0], y=selected_cell[1])  
 
     def run(self):
-        running = True
-
         event_handler = EventHandler(self)
 
         event_thread = Thread(target=event_handler.handle_events, daemon=True)
         event_thread.start()
 
-        while running:
+        while self.running:
             screen.fill((0, 0, 0))
 
             self.ui.draw()
@@ -589,5 +613,82 @@ class Simulation:
 
         pygame.quit()
 
-simulation = Simulation(started_tree=10)
+
+class Menu:
+    def __init__(self):
+        self.input_box = pygame.Rect((width / 2) - 100, 290, 200, 50)
+        self.color_inactive = pygame.Color('lightskyblue3')
+        self.color_active = pygame.Color('dodgerblue2')
+        self.color = self.color_inactive
+        self.active = False
+        self.text = '10'
+        self.running = True
+        self.font = pygame.font.SysFont('Arial', 40)
+        self.small_font = pygame.font.SysFont('Arial', 30)
+    
+    def draw(self):
+        screen.fill((30, 30, 30))
+        
+        title = self.font.render("Tree Evolution", True, (200, 200, 200))
+        screen.blit(title, (width // 2 - title.get_width() // 2, 50))
+        
+        prompt = self.small_font.render("Enter initial number of trees:", True, (255, 255, 255))
+        screen.blit(prompt, (width // 2 - prompt.get_width() // 2, 200))
+        
+        pygame.draw.rect(screen, self.color, self.input_box, 2)
+        txt_surface = self.font.render(self.text, True, (255, 255, 255))
+        screen.blit(txt_surface, (self.input_box.x + 10, self.input_box.y + 5))
+        
+        self.start_button = pygame.Rect((width / 2) - 100, 350, 200, 50)
+        pygame.draw.rect(screen, (50, 205, 50), self.start_button)
+        start_text = self.font.render("Start", True, (0, 0, 0))
+        screen.blit(start_text, (self.start_button.x + 50, self.start_button.y + 5))
+
+        self.end_button = pygame.Rect((width / 2) - 100, 410, 200, 50)
+        pygame.draw.rect(screen, (50, 205, 50), self.end_button)
+        end_text = self.font.render("Exit", True, (0, 0, 0))
+        screen.blit(end_text, (self.end_button.x + 60, self.end_button.y + 5))
+        
+    def run(self):
+        while self.running:
+            self.draw()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if self.input_box.collidepoint(event.pos):
+                        self.active = not self.active
+                    else:
+                        self.active = False
+                    
+                    if self.start_button.collidepoint(event.pos):
+                        try:
+                            initial_trees = int(self.text)
+                            self.running = False
+                        except ValueError:
+                            self.text = '0'
+                    
+                    if self.end_button.collidepoint(event.pos):
+                        pygame.quit()
+                        sys.exit()
+                
+                elif event.type == pygame.KEYDOWN:
+                    if self.active:
+                        if event.key == pygame.K_RETURN:
+                            self.active = False
+                        elif event.key == pygame.K_BACKSPACE:
+                            self.text = self.text[:-1]
+                        else:
+                            self.text += event.unicode
+            
+            self.color = self.color_active if self.active else self.color_inactive
+            pygame.display.flip()
+        return int(self.text)
+
+menu = Menu()
+initial_trees = menu.run()
+
+simulation = Simulation(started_tree=initial_trees)
 simulation.run()
