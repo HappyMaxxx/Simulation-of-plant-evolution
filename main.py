@@ -38,10 +38,11 @@ class Cell:
 
     def how_mutch_upper(self) -> int:
         count = 0
-        for tree in self.tree.simulation.trees:
-            for cell in tree.cells:
-                if cell.x == self.x and cell.y < self.y:
-                    count += 1
+        y_above = self.y - 1
+        while y_above >= 0:
+            if (self.x, y_above) in self.simulation.cell_grid:
+                count += 1
+            y_above -= 1
         return count
 
     def update_energy(self) -> int:
@@ -144,12 +145,16 @@ class Tree:
 
                 if not can_grow:
                     cell.state = '1'
+        
+                self.simulation.update_cell_grid()
 
     def update_energy(self) -> None:
-        self.getting_energy = sum([cell.energy for cell in self.cells if cell.state == '1'])
-
         growed_cells = [cell for cell in self.cells if cell.state == '1']
+
+        self.getting_energy = 0
+
         for cell in growed_cells:
+            self.getting_energy += cell.energy
             cell.energy = 0
 
         self.waste_energy = len(self.cells) * 13
@@ -171,7 +176,7 @@ class Tree:
             for cell in self.cells:
                 if cell.y == rows - 1:
                     genome_copy = copy.deepcopy(self.genome.genes)
-                    mutated_genome, mutated = self.mutate(genome=genome_copy)
+                    mutated_genome, mutated = self.mutate(genome=genome_copy, energy=self.energy)
                     die_age = self.mutate_die_age(self.die_age)
                     if mutated:
                         self.simulation.generation += 1
@@ -186,8 +191,11 @@ class Tree:
                     self.cells.remove(cell)
 
     @staticmethod
-    def mutate(genome, chance=0.25) -> List[Tuple[int, int, int]]:
-        if random.random() > chance:
+    def mutate(genome, energy, max_energy=500, min_chance=0.1, max_chance=0.3) -> List[Tuple[int, int, int]]:
+        normalized_energy = max(0, min(energy / max_energy, 1))
+        mutation_chance = min_chance + (1 - normalized_energy) * (max_chance - min_chance)
+
+        if random.random() > mutation_chance:
             return genome, 0
 
         gene = random.randint(0, 15)
@@ -508,10 +516,17 @@ class Simulation:
         self.simulation_speed = 100
         self.sun_level = 6
         self.ui = UI(self)
+        self.cell_grid = {}
 
         if started_tree:
             for _ in range(started_tree):
                 self.add_tree()
+    
+    def update_cell_grid(self):
+        self.cell_grid.clear()
+        for tree in self.trees:
+            for cell in tree.cells:
+                self.cell_grid[(cell.x, cell.y)] = cell
 
     def add_tree(self, genome: List[Tuple[int, int, int]] = None, x: int = None, y: int = None) -> None:
         self.trees.append(Tree(simulation=self, genome=genome[:-1] if genome else None,
@@ -589,6 +604,7 @@ class Simulation:
         while self.running:
             screen.fill((0, 0, 0))
 
+            self.update_cell_grid()
             self.ui.draw()
 
             for tree in self.trees:
