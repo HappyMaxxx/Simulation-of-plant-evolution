@@ -124,16 +124,15 @@ class Tree:
                     (cell.x, cell.y + 1)  
                 ]
 
+                occupied_positions = set(self.simulation.cell_grid.keys())
+
                 for i, (new_x, new_y) in enumerate(directions):
                     if cell.gen[i] == 30:
                         continue
 
-                    if new_x < 0:
-                        new_x = cols - 1
-                    elif new_x >= cols:
-                        new_x = 0
+                    new_x = self.simulation.max_cols - 1 if new_x < 0 else 0 if new_x >= self.simulation.max_cols else new_x
 
-                    if 0 <= new_y < rows and new_y >= 19 and not (new_x, new_y) in self.simulation.cell_grid:
+                    if 0 <= new_y < rows and new_y >= 19 and not (new_x, new_y) in occupied_positions:
                         can_grow = True 
                         if cell.energy >= self.growth_energy:
                             self.cells.append(Cell(simulation=self.simulation, tree=self, x=new_x, y=new_y, gen=self.genome.genes[cell.gen[i]]))
@@ -142,10 +141,9 @@ class Tree:
                 if is_growed:
                     cell.energy -= self.growth_energy
                     cell.state = '1'
-
                 if not can_grow:
                     cell.state = '1'
-        
+
                 self.simulation.update_cell_grid()
 
     def update_energy(self) -> None:
@@ -328,6 +326,7 @@ class UI:
         self.font = pygame.font.SysFont('Arial', 20)
         self.icon_color = (94, 149, 95)
         self.bg_color = (66, 66, 66)
+        self.minimap = Minimap(simulation, width=300, height=50, scale=0.1)
 
     def draw_button(self, screen, rect, text, offset_x=0, offset_y=0) -> None:
         pygame.draw.rect(screen, self.bg_color, rect, 2)
@@ -418,6 +417,35 @@ class UI:
         self.draw_sun_level_buttons()
         self.draw_radio_buttons()
         self.draw_generation()
+        self.minimap.draw(screen)
+
+
+class Minimap:
+    def __init__(self, simulation: 'Simulation', width: int, height: int, scale: float) -> None:
+        self.simulation = simulation
+        self.width = width
+        self.height = height
+        self.scale = scale
+        self.surface = pygame.Surface((width, height))
+
+    def draw_viewport(self) -> None:
+        viewport_width = self.width * self.scale
+        viewport_height = self.height
+        viewport_x = self.simulation.x_offset / (self.simulation.max_cols / self.width)
+
+        if viewport_x + viewport_width > self.width:
+            wrap_width = viewport_width - (self.width - viewport_x)
+            pygame.draw.rect(self.surface, (255, 0, 0), (viewport_x, 0, self.width - viewport_x, viewport_height), 2)
+            pygame.draw.rect(self.surface, (255, 0, 0), (0, 0, wrap_width, viewport_height), 2)
+        else:
+            pygame.draw.rect(self.surface, (255, 0, 0), (viewport_x, 0, viewport_width, viewport_height), 2)
+
+    def draw(self, screen: pygame.Surface) -> None:
+        self.surface.fill((0, 0, 0))
+
+        self.draw_viewport()
+
+        screen.blit(self.surface, (self.width + 580, 35))
 
 
 class EventHandler:
@@ -503,6 +531,21 @@ class EventHandler:
                         self.handle_radio_buttons(self.ui.radio_x, 50)
                     elif event.key == pygame.K_c:
                         self.handle_radio_buttons(self.ui.radio_x, 80)
+                
+                elif event.type == pygame.MOUSEWHEEL:
+                    if event.y > 0:
+                        self.simulation.x_offset = (self.simulation.x_offset - 2) % self.simulation.max_cols
+                    elif event.y < 0:
+                        self.simulation.x_offset = (self.simulation.x_offset + 2) % self.simulation.max_cols
+
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_LEFT]:
+                self.simulation.x_offset = (self.simulation.x_offset - 2) % self.simulation.max_cols
+                pygame.time.wait(25)
+
+            elif keys[pygame.K_RIGHT]:
+                self.simulation.x_offset = (self.simulation.x_offset + 2) % self.simulation.max_cols
+                pygame.time.wait(25)
 
 
 class Simulation:
@@ -517,6 +560,8 @@ class Simulation:
         self.sun_level = 6
         self.ui = UI(self)
         self.cell_grid = {}
+        self.x_offset = 0
+        self.max_cols = 660
 
         if started_tree:
             for _ in range(started_tree):
@@ -543,6 +588,8 @@ class Simulation:
 
                         clicked_cell_x = mouse_x // cell_size
                         clicked_cell_y = mouse_y // cell_size
+
+                        clicked_cell_x += self.x_offset
 
                         for tree in self.trees:
                             for cell in tree.cells:
@@ -582,12 +629,14 @@ class Simulation:
                         clicked_cell_x = mouse_x // cell_size
                         clicked_cell_y = mouse_y // cell_size
 
+                        clicked_cell_x += self.x_offset
+
                         for tree in self.trees:
                             for cell in tree.cells:
                                 if cell.x == clicked_cell_x and cell.y == clicked_cell_y:
                                     free_space = False
                         
-                        while clicked_cell_y < rows - 1 and not any(c.x == clicked_cell_x and c.y == clicked_cell_y + 1 for tree in self.trees for c in tree.cells):
+                        while clicked_cell_y < rows - 1 and not (clicked_cell_x, clicked_cell_y + 1) in self.cell_grid:
                             clicked_cell_y += 1
 
                         if free_space:
@@ -609,15 +658,18 @@ class Simulation:
 
             for tree in self.trees:
                 for cell in tree.cells:
-                    if self.display_mode == 'normal':
-                        pygame.draw.rect(screen, tree.genome.color if cell.state == '1' else (240, 248, 255), 
-                                         (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
-                    elif self.display_mode == 'energy':
-                        energy_color = (min(255, int(cell.last_energy * 10) + 50), 0, 0)
-                        pygame.draw.rect(screen, energy_color, (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
-                    elif self.display_mode == 'family':
-                        pygame.draw.rect(screen, tree.genome.ancestral_color if cell.state == '1' else (240, 248, 255),
-                        (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
+                    cell_x = (cell.x - self.x_offset) % self.max_cols
+                    if 0 <= cell_x < cols:
+                        if self.display_mode == 'normal':
+                            pygame.draw.rect(screen, tree.genome.color if cell.state == '1' else (240, 248, 255),
+                                            (cell_x * cell_size, cell.y * cell_size, cell_size, cell_size))
+                        elif self.display_mode == 'energy':
+                            energy_color = (min(255, int(cell.last_energy * 10) + 50), 0, 0)
+                            pygame.draw.rect(screen, energy_color, (cell_x * cell_size, cell.y * cell_size, cell_size, cell_size))
+                        elif self.display_mode == 'family':
+                            pygame.draw.rect(screen, tree.genome.ancestral_color if cell.state == '1' else (240, 248, 255),
+                                            (cell_x * cell_size, cell.y * cell_size, cell_size, cell_size))
+
 
             pygame.display.flip()
 
