@@ -424,6 +424,7 @@ class Minimap:
         self.height = height
         self.scale = scale
         self.surface = pygame.Surface((width, height))
+        self.position = (self.width + 580, 35)
 
     def draw_viewport(self) -> None:
         viewport_width = self.width * self.scale
@@ -439,10 +440,8 @@ class Minimap:
 
     def draw(self, screen: pygame.Surface) -> None:
         self.surface.fill((0, 0, 0))
-
         self.draw_viewport()
-
-        screen.blit(self.surface, (self.width + 580, 35))
+        screen.blit(self.surface, self.position)
 
 
 class EventHandler:
@@ -491,58 +490,69 @@ class EventHandler:
             pygame.quit()
             sys.exit()
 
+    def handle_minimap(self, mouse_x: int, mouse_y: int) -> None:
+        map_x, map_y = self.simulation.ui.minimap.position
+
+        if map_x <= mouse_x <= map_x + self.simulation.ui.minimap.width and map_y <= mouse_y <= map_y + self.simulation.ui.minimap.height:
+
+            click_x = mouse_x - map_x
+            new_x_offset = (click_x / self.simulation.ui.minimap.width) * self.simulation.max_cols
+
+            new_x_offset = int(new_x_offset) - (self.simulation.ui.minimap.width * self.simulation.ui.minimap.scale)
+            self.simulation.x_offset = int(new_x_offset)
+
     def handle_events(self):
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_x, mouse_y = pygame.mouse.get_pos()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_x, mouse_y = pygame.mouse.get_pos()
 
-                    self.handle_pause_button(mouse_x, mouse_y)
-                    self.handle_exit_button(mouse_x, mouse_y)
-                    self.handle_radio_buttons(mouse_x, mouse_y)
-                    self.handle_speed_buttons(mouse_x, mouse_y)
-                    self.handle_save_load_buttons(mouse_x, mouse_y)
-                    self.handle_sun_level_buttons(mouse_x, mouse_y)
+                self.handle_pause_button(mouse_x, mouse_y)
+                self.handle_exit_button(mouse_x, mouse_y)
+                self.handle_radio_buttons(mouse_x, mouse_y)
+                self.handle_speed_buttons(mouse_x, mouse_y)
+                self.handle_save_load_buttons(mouse_x, mouse_y)
+                self.handle_sun_level_buttons(mouse_x, mouse_y)
+                self.handle_minimap(mouse_x, mouse_y)
 
-                    cell_x = mouse_x // cell_size
-                    cell_y = mouse_y // cell_size
+                cell_x = mouse_x // cell_size
+                cell_y = mouse_y // cell_size
 
-                    for tree in self.simulation.trees:
-                        for cell in tree.cells:
-                            if cell.x == cell_x and cell.y == cell_y:
-                                TreeDetailsWindow(simulation=self.simulation, tree=tree)
-                                self.simulation.tree_infos.append(tree)
+                for tree in self.simulation.trees:
+                    for cell in tree.cells:
+                        if cell.x == cell_x and cell.y == cell_y:
+                            TreeDetailsWindow(simulation=self.simulation, tree=tree)
+                            self.simulation.tree_infos.append(tree)
 
-                elif event.type == pygame.KEYDOWN:
-                    # Pause
-                    if event.key == pygame.K_SPACE:
-                        self.simulation.paused = not self.simulation.paused
+            elif event.type == pygame.KEYDOWN:
+                # Pause
+                if event.key == pygame.K_SPACE:
+                    self.simulation.paused = not self.simulation.paused
 
-                    # View Mode
-                    elif event.key == pygame.K_z:
-                        self.handle_radio_buttons(self.ui.radio_x, 20)
-                    elif event.key == pygame.K_x:
-                        self.handle_radio_buttons(self.ui.radio_x, 50)
-                    elif event.key == pygame.K_c:
-                        self.handle_radio_buttons(self.ui.radio_x, 80)
-                
-                elif event.type == pygame.MOUSEWHEEL:
-                    if event.y > 0:
-                        self.simulation.x_offset = (self.simulation.x_offset - 2) % self.simulation.max_cols
-                    elif event.y < 0:
-                        self.simulation.x_offset = (self.simulation.x_offset + 2) % self.simulation.max_cols
+                # View Mode
+                elif event.key == pygame.K_z:
+                    self.handle_radio_buttons(self.ui.radio_x, 20)
+                elif event.key == pygame.K_x:
+                    self.handle_radio_buttons(self.ui.radio_x, 50)
+                elif event.key == pygame.K_c:
+                    self.handle_radio_buttons(self.ui.radio_x, 80)
+            
+            elif event.type == pygame.MOUSEWHEEL:
+                if event.y > 0:
+                    self.simulation.x_offset = (self.simulation.x_offset - 2) % self.simulation.max_cols
+                elif event.y < 0:
+                    self.simulation.x_offset = (self.simulation.x_offset + 2) % self.simulation.max_cols
 
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_LEFT]:
-                self.simulation.x_offset = (self.simulation.x_offset - 2) % self.simulation.max_cols
-                pygame.time.wait(25)
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT]:
+            self.simulation.x_offset = (self.simulation.x_offset - 2) % self.simulation.max_cols
+            pygame.time.wait(25)
 
-            elif keys[pygame.K_RIGHT]:
-                self.simulation.x_offset = (self.simulation.x_offset + 2) % self.simulation.max_cols
-                pygame.time.wait(25)
+        elif keys[pygame.K_RIGHT]:
+            self.simulation.x_offset = (self.simulation.x_offset + 2) % self.simulation.max_cols
+            pygame.time.wait(25)
 
 
 class Simulation:
@@ -648,12 +658,9 @@ class Simulation:
     def run(self):
         event_handler = EventHandler(self)
 
-        event_thread = Thread(target=event_handler.handle_events, daemon=True)
-        event_thread.start()
-
         while self.running:
             screen.fill((0, 0, 0))
-
+            event_handler.handle_events()
             self.update_cell_grid()
             self.ui.draw()
 

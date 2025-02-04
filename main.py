@@ -463,42 +463,41 @@ class EventHandler:
             sys.exit()
 
     def handle_events(self):
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_x, mouse_y = pygame.mouse.get_pos()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_x, mouse_y = pygame.mouse.get_pos()
 
-                    self.handle_pause_button(mouse_x, mouse_y)
-                    self.handle_exit_button(mouse_x, mouse_y)
-                    self.handle_radio_buttons(mouse_x, mouse_y)
-                    self.handle_speed_buttons(mouse_x, mouse_y)
-                    self.handle_save_load_buttons(mouse_x, mouse_y)
-                    self.handle_sun_level_buttons(mouse_x, mouse_y)
+                self.handle_pause_button(mouse_x, mouse_y)
+                self.handle_exit_button(mouse_x, mouse_y)
+                self.handle_radio_buttons(mouse_x, mouse_y)
+                self.handle_speed_buttons(mouse_x, mouse_y)
+                self.handle_save_load_buttons(mouse_x, mouse_y)
+                self.handle_sun_level_buttons(mouse_x, mouse_y)
 
-                    cell_x = mouse_x // cell_size
-                    cell_y = mouse_y // cell_size
+                cell_x = mouse_x // cell_size
+                cell_y = mouse_y // cell_size
 
-                    for tree in self.simulation.trees:
-                        for cell in tree.cells:
-                            if cell.x == cell_x and cell.y == cell_y:
-                                TreeDetailsWindow(simulation=self.simulation, tree=tree)
-                                self.simulation.tree_infos.append(tree)
+                for tree in self.simulation.trees:
+                    for cell in tree.cells:
+                        if cell.x == cell_x and cell.y == cell_y:
+                            TreeDetailsWindow(simulation=self.simulation, tree=tree)
+                            self.simulation.tree_infos.append(tree)
 
-                elif event.type == pygame.KEYDOWN:
-                    # Pause
-                    if event.key == pygame.K_SPACE:
-                        self.simulation.paused = not self.simulation.paused
+            elif event.type == pygame.KEYDOWN:
+                # Pause
+                if event.key == pygame.K_SPACE:
+                    self.simulation.paused = not self.simulation.paused
 
-                    # View Mode
-                    elif event.key == pygame.K_z:
-                        self.handle_radio_buttons(self.ui.radio_x, 20)
-                    elif event.key == pygame.K_x:
-                        self.handle_radio_buttons(self.ui.radio_x, 50)
-                    elif event.key == pygame.K_c:
-                        self.handle_radio_buttons(self.ui.radio_x, 80)
+                # View Mode
+                elif event.key == pygame.K_z:
+                    self.handle_radio_buttons(self.ui.radio_x, 20)
+                elif event.key == pygame.K_x:
+                    self.handle_radio_buttons(self.ui.radio_x, 50)
+                elif event.key == pygame.K_c:
+                    self.handle_radio_buttons(self.ui.radio_x, 80)
 
 
 class Simulation:
@@ -598,12 +597,9 @@ class Simulation:
     def run(self):
         event_handler = EventHandler(self)
 
-        event_thread = Thread(target=event_handler.handle_events, daemon=True)
-        event_thread.start()
-
         while self.running:
             screen.fill((0, 0, 0))
-
+            event_handler.handle_events()
             self.update_cell_grid()
             self.ui.draw()
 
