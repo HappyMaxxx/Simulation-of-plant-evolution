@@ -40,7 +40,7 @@ class Cell:
         count = 0
         y_above = self.y - 1
         while y_above >= 0:
-            if (self.x, y_above) in self.simulation.cell_grid:
+            if (self.x, y_above) in self.simulation.occupied_positions:
                 count += 1
             y_above -= 1
         return count
@@ -113,10 +113,10 @@ class Tree:
 
     def grow(self) -> None:
         for cell in self.cells:
-            is_growed = False
-            can_grow = False
-
-            if cell.state == '0':
+            if cell.state == '0' and cell.energy >= self.growth_energy:
+                is_growed = False
+                can_grow = False
+                
                 directions = [
                     (cell.x, cell.y - 1),
                     (cell.x - 1, cell.y),
@@ -128,16 +128,12 @@ class Tree:
                     if cell.gen[i] == 30:
                         continue
 
-                    if new_x < 0:
-                        new_x = cols - 1
-                    elif new_x >= cols:
-                        new_x = 0
+                    new_x = cols - 1 if new_x < 0 else 0 if new_x >= cols else new_x
 
-                    if 0 <= new_y < rows and new_y >= 19 and not (new_x, new_y) in self.simulation.cell_grid:
+                    if 0 <= new_y < rows and new_y >= 19 and not (new_x, new_y) in self.simulation.occupied_positions:
                         can_grow = True 
-                        if cell.energy >= self.growth_energy:
-                            self.cells.append(Cell(simulation=self.simulation, tree=self, x=new_x, y=new_y, gen=self.genome.genes[cell.gen[i]]))
-                            is_growed = True
+                        self.cells.append(Cell(simulation=self.simulation, tree=self, x=new_x, y=new_y, gen=self.genome.genes[cell.gen[i]]))
+                        is_growed = True
 
                 if is_growed:
                     cell.energy -= self.growth_energy
@@ -225,7 +221,7 @@ class Tree:
 
     def fall_cells(self) -> None:
         for cell in self.cells:
-            if cell.y < rows - 1 and not (cell.x, cell.y + 1) in self.simulation.cell_grid:
+            if cell.y < rows - 1 and not (cell.x, cell.y + 1) in self.simulation.occupied_positions:
                 cell.y += 1
             elif cell.y == rows - 1:
                 pass
@@ -517,16 +513,20 @@ class Simulation:
         self.sun_level = 6
         self.ui = UI(self)
         self.cell_grid = {}
+        self.occupied_positions = set()
 
         if started_tree:
             for _ in range(started_tree):
                 self.add_tree()
     
     def update_cell_grid(self):
-        self.cell_grid.clear()
+        new_cell_grid = {}
         for tree in self.trees:
             for cell in tree.cells:
-                self.cell_grid[(cell.x, cell.y)] = cell
+                new_cell_grid[(cell.x, cell.y)] = cell
+
+        self.cell_grid = new_cell_grid
+        self.occupied_positions = set(self.cell_grid.keys())
 
     def add_tree(self, genome: List[Tuple[int, int, int]] = None, x: int = None, y: int = None) -> None:
         self.trees.append(Tree(simulation=self, genome=genome[:-1] if genome else None,
@@ -607,17 +607,18 @@ class Simulation:
             self.update_cell_grid()
             self.ui.draw()
 
-            for tree in self.trees:
-                for cell in tree.cells:
-                    if self.display_mode == 'normal':
-                        pygame.draw.rect(screen, tree.genome.color if cell.state == '1' else (240, 248, 255), 
-                                         (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
-                    elif self.display_mode == 'energy':
-                        energy_color = (min(255, int(cell.last_energy * 10) + 50), 0, 0)
-                        pygame.draw.rect(screen, energy_color, (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
-                    elif self.display_mode == 'family':
-                        pygame.draw.rect(screen, tree.genome.ancestral_color if cell.state == '1' else (240, 248, 255),
-                        (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
+            # for tree in self.trees:
+            #    for cell in tree.cells:
+            for cell in self.cell_grid.values():
+                if self.display_mode == 'normal':
+                    pygame.draw.rect(screen, cell.tree.genome.color if cell.state == '1' else (240, 248, 255), 
+                                        (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
+                elif self.display_mode == 'energy':
+                    energy_color = (min(255, int(cell.last_energy * 10) + 50), 0, 0)
+                    pygame.draw.rect(screen, energy_color, (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
+                elif self.display_mode == 'family':
+                    pygame.draw.rect(screen, tree.genome.ancestral_color if cell.state == '1' else (240, 248, 255),
+                    (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
 
             pygame.display.flip()
 
