@@ -427,9 +427,9 @@ class Minimap:
         self.position = (self.width + 580, 35)
 
     def draw_viewport(self) -> None:
-        viewport_width = self.width * self.scale
+        viewport_width = (cols / self.simulation.max_cols) * self.width + 20
         viewport_height = self.height
-        viewport_x = self.simulation.x_offset / (self.simulation.max_cols / self.width)
+        viewport_x = (self.simulation.x_offset / self.simulation.max_cols) * self.width
 
         if viewport_x + viewport_width > self.width:
             wrap_width = viewport_width - (self.width - viewport_x)
@@ -440,8 +440,18 @@ class Minimap:
 
     def draw(self, screen: pygame.Surface) -> None:
         self.surface.fill((0, 0, 0))
+        
+        for cell in self.simulation.cell_grid.values():
+            mini_x = int(cell.x * self.scale * 5.4)
+            mini_y = int(cell.y * self.scale * 5.4)
+
+            color = cell.tree.genome.color if cell.state == '1' else (150, 150, 150)
+            
+            pygame.draw.rect(self.surface, color, (mini_x, mini_y, 2, 2))
+
         self.draw_viewport()
         screen.blit(self.surface, self.position)
+
 
 
 class EventHandler:
@@ -676,7 +686,7 @@ class Simulation:
                         energy_color = (min(255, int(cell.last_energy * 10) + 50), 0, 0)
                         pygame.draw.rect(screen, energy_color, (cell_x * cell_size, cell.y * cell_size, cell_size, cell_size))
                     elif self.display_mode == 'family':
-                        pygame.draw.rect(screen, tree.genome.ancestral_color if cell.state == '1' else (240, 248, 255),
+                        pygame.draw.rect(screen, cell.tree.genome.ancestral_color if cell.state == '1' else (240, 248, 255),
                                         (cell_x * cell_size, cell.y * cell_size, cell_size, cell_size))
 
 

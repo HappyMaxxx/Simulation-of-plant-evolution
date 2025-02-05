@@ -613,7 +613,7 @@ class Simulation:
                     energy_color = (min(255, int(cell.last_energy * 10) + 50), 0, 0)
                     pygame.draw.rect(screen, energy_color, (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
                 elif self.display_mode == 'family':
-                    pygame.draw.rect(screen, tree.genome.ancestral_color if cell.state == '1' else (240, 248, 255),
+                    pygame.draw.rect(screen, cell.tree.genome.ancestral_color if cell.state == '1' else (240, 248, 255),
                     (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
 
             pygame.display.flip()
