@@ -603,8 +603,6 @@ class Simulation:
             self.update_cell_grid()
             self.ui.draw()
 
-            # for tree in self.trees:
-            #    for cell in tree.cells:
             for cell in self.cell_grid.values():
                 if self.display_mode == 'normal':
                     pygame.draw.rect(screen, cell.tree.genome.color if cell.state == '1' else (240, 248, 255), 
