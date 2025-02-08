@@ -268,7 +268,7 @@ class SoilBlock:
     def waste_fertility(self):
         for tree, roots in self.simulation.roots.items():
             if self.x in roots:
-                self.fertility = max(0, self.fertility - 0.00005 * len(tree.cells))
+                self.fertility = max(0, self.fertility - 0.00004 * len(tree.cells))
     
     def restore_fertility(self):
         self.fertility = min(1, self.fertility + 0.01)
