@@ -2,13 +2,15 @@ import pygame
 from pygame.locals import *
 import tkinter as tk
 from tkinter import filedialog
+import sys
+
+from settings import width_s, height_s
 
 pygame.init()
 
-width, height = 1000, 600
 cell_size = 12
-cols, rows = (width - 200) // cell_size, height // cell_size
-screen = pygame.display.set_mode((width, height))
+cols, rows = (width_s - 200) // cell_size, height_s // cell_size
+screen = pygame.display.set_mode((width_s, height_s))
 pygame.display.set_caption("Tree Growth Visualizer")
 
 GRID_COLOR = (50, 50, 50)
@@ -105,6 +107,11 @@ class Tree:
         self.dell_cells_energy()
         self.waste_energy = len(self.cells) * 13
         self.energy += self.getting_energy - self.waste_energy
+    
+    def update_zero_energy(self) -> None:
+        for cell in self.cells:
+            if cell.state == 0:
+                cell.energy = 0
 
     def dell_cells_energy(self) -> None:
         growed_cells = [cell for cell in self.cells if cell.state == 1]
@@ -124,10 +131,10 @@ class Tree:
 
 
 def draw_grid():
-    for x in range(0, width - 200, cell_size):
-        pygame.draw.line(screen, GRID_COLOR, (x, 0), (x, height))
-    for y in range(0, height, cell_size):
-        pygame.draw.line(screen, GRID_COLOR, (0, y), (width - 200, y))
+    for x in range(0, width_s - 200, cell_size):
+        pygame.draw.line(screen, GRID_COLOR, (x, 0), (x, height_s))
+    for y in range(0, height_s, cell_size):
+        pygame.draw.line(screen, GRID_COLOR, (0, y), (width_s - 200, y))
 
 
 def load_file():
@@ -141,24 +148,24 @@ def load_file():
     return [list(map(int, line.strip().split(","))) for line in data]
 
 def draw_genome(genome):
-    pygame.draw.rect(screen, GENOME_BG_COLOR, (width - 200, 0, 200, height))
+    pygame.draw.rect(screen, GENOME_BG_COLOR, (width_s- 200, 0, 200, height_s))
     y_offset = 10
 
     header = ["№", "U", "L", "R", "D"]
     for j, header_item in enumerate(header):
-        rect = pygame.Rect(width - 190 + j * (CELL_SIZE), y_offset, CELL_SIZE, CELL_SIZE)
+        rect = pygame.Rect(width_s- 190 + j * (CELL_SIZE), y_offset, CELL_SIZE, CELL_SIZE)
         header_text = font.render(header_item, True, GENOME_TEXT_COLOR)
         screen.blit(header_text, rect.move((CELL_SIZE - header_text.get_width()) // 2, (CELL_SIZE - header_text.get_height()) // 2))
     
     y_offset += CELL_SIZE
 
     for i, gene in enumerate(genome[:16]):
-        index_rect = pygame.Rect(width - 190, y_offset, CELL_SIZE, CELL_SIZE)
+        index_rect = pygame.Rect(width_s- 190, y_offset, CELL_SIZE, CELL_SIZE)
         index_text = font.render(f"{i:2}", True, GENOME_TEXT_COLOR)
         screen.blit(index_text, index_rect.move((CELL_SIZE - index_text.get_width()) // 2, (CELL_SIZE - index_text.get_height()) // 2))
 
         for j, g in enumerate(gene):
-            rect = pygame.Rect(width - 190 + (j + 1) * (CELL_SIZE), y_offset, CELL_SIZE, CELL_SIZE)
+            rect = pygame.Rect(width_s- 190 + (j + 1) * (CELL_SIZE), y_offset, CELL_SIZE, CELL_SIZE)
             gene_number_text = font.render(str(g), True, GENOME_TEXT_COLOR)
             screen.blit(gene_number_text, rect.move((CELL_SIZE - gene_number_text.get_width()) // 2, (CELL_SIZE - gene_number_text.get_height()) // 2))
 
@@ -192,25 +199,25 @@ def draw_tree(tree, display_mode, cell_info_mode, wood_info_mode):
             pygame.draw.rect(screen, energy_color, (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
 
 def draw_step_button():
-    pygame.draw.rect(screen, (100, 100, 100), (width - 180, height - 50, 160, 40))
+    pygame.draw.rect(screen, (100, 100, 100), (width_s- 180, height_s - 50, 160, 40))
     step_text = font.render("Next Step", True, (255, 255, 255))
-    screen.blit(step_text, (width - 150, height - 40))
+    screen.blit(step_text, (width_s- 150, height_s - 40))
 
 def draw_radio_buttons(screen, display_mode):
         font = pygame.font.SysFont(None, 24)
         normal_text = font.render('Normal', True, (255, 255, 255))
         energy_text = font.render('Energy', True, (255, 255, 255))
 
-        pygame.draw.circle(screen, (255, 255, 255), (width - 185, 535), 10, 1)
-        pygame.draw.circle(screen, (255, 255, 255), (width - 95, 535), 10, 1)
+        pygame.draw.circle(screen, (255, 255, 255), (width_s- 185, 535), 10, 1)
+        pygame.draw.circle(screen, (255, 255, 255), (width_s- 95, 535), 10, 1)
 
         if display_mode == 'normal':
-            pygame.draw.circle(screen, (255, 255, 255), (width - 185, 535), 5)
+            pygame.draw.circle(screen, (255, 255, 255), (width_s- 185, 535), 5)
         elif display_mode == 'energy':
-            pygame.draw.circle(screen, (255, 255, 255), (width - 95, 535), 5)
+            pygame.draw.circle(screen, (255, 255, 255), (width_s- 95, 535), 5)
 
-        screen.blit(normal_text, (width - 185 + 15, 527))
-        screen.blit(energy_text, (width - 105 + 25, 527))
+        screen.blit(normal_text, (width_s- 185 + 15, 527))
+        screen.blit(energy_text, (width_s- 105 + 25, 527))
 
 def draw_radio_buttons_cell_info(screen, info_mode):
     radio_x = 710
@@ -272,9 +279,9 @@ def handle_radio_buttons_cell_info(mouse_x: int, mouse_y: int, info_mode):
     return info_mode
 
 def handle_radio_buttons(mouse_x: int, mouse_y: int, display_mode):
-    if width - 185 - 10 <= mouse_x <= width - 185 + 10 and 525 <= mouse_y <= 545:
+    if width_s- 185 - 10 <= mouse_x <= width_s- 185 + 10 and 525 <= mouse_y <= 545:
         return 'normal'
-    elif width - 95 - 10 <= mouse_x <= width - 95 + 10  and 525 <= mouse_y <= 545:
+    elif width_s- 95 - 10 <= mouse_x <= width_s- 95 + 10  and 525 <= mouse_y <= 545:
         return 'energy' if display_mode != 'energy' else 'normal'
     
     return display_mode
@@ -288,7 +295,55 @@ def draw_info(tree):
     energy_info_text = font.render(f"Cells: {len(tree.cells)}", True, (255, 255, 255))
     screen.blit(energy_info_text, (10, 50))
 
-def main():
+class Menu:
+    def __init__(self):
+        self.color_inactive = pygame.Color('lightskyblue3')
+        self.color_active = pygame.Color('dodgerblue2')
+        self.color = self.color_inactive
+        self.active = False
+        self.running = True
+        self.font = pygame.font.SysFont('Arial', 40)
+        self.small_font = pygame.font.SysFont('Arial', 30)
+        self.mode = ''
+    
+    def draw(self):
+        screen.fill((30, 30, 30))
+        
+        title = self.font.render("Genome visualization", True, (200, 200, 200))
+        screen.blit(title, (width_s // 2 - title.get_width() // 2, 50))
+        
+        self.start_button = pygame.Rect((width_s / 2) - 200, 350, 400, 50)
+        pygame.draw.rect(screen, (50, 205, 50), self.start_button)
+        start_text = self.font.render("Genome mode", True, (0, 0, 0))
+        screen.blit(start_text, (self.start_button.x + 50, self.start_button.y + 5))
+
+        self.end_button = pygame.Rect((width_s / 2) - 200, 410, 400, 50)
+        pygame.draw.rect(screen, (50, 205, 50), self.end_button)
+        end_text = self.font.render("Sandbox mode", True, (0, 0, 0))
+        screen.blit(end_text, (self.end_button.x + 60, self.end_button.y + 5))
+        
+    def run(self):
+        while self.running:
+            self.draw()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+
+                    if self.start_button.collidepoint(event.pos):
+                        self.mode = 'genome'
+                        self.running = False
+
+                    if self.end_button.collidepoint(event.pos):
+                        self.mode = 'sandbox'
+                        self.running = False
+            
+            self.color = self.color_active if self.active else self.color_inactive
+            pygame.display.flip()
+
+def main(mode):
     running = True
     clock = pygame.time.Clock()
     tree = Tree()
@@ -298,26 +353,32 @@ def main():
     seed_info_mode = 'none'
     wood_info_mode = 'none'
 
-    tree.genome = load_file()
-    if not tree.genome:
-        tree.genome = [[0, 1, 2, 3]] * 16
+    if mode == 'genome':
+        tree.genome = load_file()
+        if not tree.genome:
+            tree.genome = [[0, 1, 2, 3]] * 16
 
-    initial_x, initial_y = (cols // 2, rows - 1)
-    tree.add_cell(initial_x, initial_y, 0, 0)
-    tree.update_cells()
+        initial_x, initial_y = (cols // 2, rows - 1)
+        tree.add_cell(initial_x, initial_y, 0, 0)
+        tree.update_cells()
 
     while running:
         screen.fill(BG_COLOR)
         draw_grid()
         draw_tree(tree, display_mode, seed_info_mode, wood_info_mode)
-        draw_genome(tree.genome)
-        draw_step_button()
+
+        if mode == 'genome':
+            draw_genome(tree.genome)
+            draw_step_button()
+
         draw_radio_buttons(screen, display_mode)
         draw_type_radio(screen, info_type)
+
         if info_type == 'seed':
             draw_radio_buttons_cell_info(screen, seed_info_mode)
         elif info_type == 'wood':
             draw_radio_buttons_cell_info(screen, wood_info_mode)
+
         draw_info(tree)
 
         for event in pygame.event.get():
@@ -326,9 +387,9 @@ def main():
             elif event.type == MOUSEBUTTONDOWN:
                 mouse_x, mouse_y = pygame.mouse.get_pos()
 
-                if width - 180 <= mouse_x <= width - 20 and height - 50 <= mouse_y <= height - 10:
+                if mode == 'genome' and width_s - 180 <= mouse_x <= width_s - 20 and height_s - 50 <= mouse_y <= height_s - 10:
                     step_mode = True
-                
+
                 display_mode = handle_radio_buttons(mouse_x, mouse_y, display_mode)
 
                 if info_type == 'seed':
@@ -338,10 +399,29 @@ def main():
 
                 info_type = handle_radio_buttons_type(mouse_x, mouse_y, info_type)
 
-        if step_mode:
-            if tree.energy <= 0:
-                pass
-            else:
+                if mode == 'sandbox':
+                    cell_x = mouse_x // cell_size
+                    cell_y = mouse_y // cell_size
+
+                    if not (600 <= mouse_x <= width_s and 10 <= mouse_y <= 90) and not (800 <= mouse_x <= width_s and 0 <= mouse_y <= height_s):
+                        if event.button == 1 and tree.energy > 0:
+                            if (cell_x, cell_y) not in [(cell.x, cell.y) for cell in tree.cells]:
+                                tree.add_cell(cell_x, cell_y, 1, 0)
+
+                            elif (cell_x, cell_y) in [(cell.x, cell.y) for cell in tree.cells]:
+                                cell = [cell for cell in tree.cells if cell.x == cell_x and cell.y == cell_y][0]
+                                if cell.state == 1:
+                                    tree.cells.remove(cell)
+                                    tree.add_cell(cell_x, cell_y, 0, 0)
+                                elif cell.state == 0:
+                                    tree.cells.remove(cell)
+
+                            tree.update_cells()
+                            tree.update_energy()
+                            tree.update_zero_energy()
+
+        if step_mode and mode == 'genome':
+            if tree.energy > 0:
                 tree.step()
             step_mode = False
 
@@ -350,6 +430,9 @@ def main():
 
     pygame.quit()
 
-
 if __name__ == "__main__":
-    main()
+    menu = Menu()
+    menu.run()
+    mode = menu.mode
+
+    main(mode)
