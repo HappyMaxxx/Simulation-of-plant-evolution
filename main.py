@@ -500,6 +500,36 @@ class EventHandler:
                     self.handle_radio_buttons(self.ui.radio_x, 80)
 
 
+class Renderer:
+    def __init__(self, simulation):
+        self.simulation = simulation
+        self.screen = pygame.display.get_surface()
+
+    def draw(self):
+        self.screen.fill((0, 0, 0))
+        self.simulation.ui.draw()
+
+        for cell in self.simulation.cell_grid.values():
+            self._draw_cell(cell)
+
+    def _draw_cell(self, cell):
+        x = cell.x * cell_size
+        y = cell.y * cell_size
+        rect = (x, y, cell_size, cell_size)
+
+        if self.simulation.display_mode == 'normal':
+            color = cell.tree.genome.color if cell.state == '1' else (240, 248, 255)
+            pygame.draw.rect(self.screen, color, rect)
+        
+        elif self.simulation.display_mode == 'energy':
+            energy_color = (min(255, int(cell.last_energy * 10) + 50), 0, 0)
+            pygame.draw.rect(self.screen, energy_color, rect)
+        
+        elif self.simulation.display_mode == 'family':
+            color = cell.tree.genome.ancestral_color if cell.state == '1' else (240, 248, 255)
+            pygame.draw.rect(self.screen, color, rect)
+
+
 class Simulation:
     def __init__(self, started_tree: int = None) -> None:
         self.running = True
@@ -513,6 +543,7 @@ class Simulation:
         self.ui = UI(self)
         self.cell_grid = {}
         self.occupied_positions = set()
+        self.renderer = Renderer(self)
 
         if started_tree:
             for _ in range(started_tree):
@@ -529,7 +560,7 @@ class Simulation:
 
     def add_tree(self, genome: List[Tuple[int, int, int]] = None, x: int = None, y: int = None) -> None:
         self.trees.append(Tree(simulation=self, genome=genome[:-1] if genome else None,
-                               color_gen=genome[-1] if genome and len(genome) == 17 else None, x=x, y=y))
+                             color_gen=genome[-1] if genome and len(genome) == 17 else None, x=x, y=y))
 
     def save_genome(self) -> None:
         self.selected_tree = None
@@ -539,7 +570,6 @@ class Simulation:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
                         mouse_x, mouse_y = pygame.mouse.get_pos()
-
                         clicked_cell_x = mouse_x // cell_size
                         clicked_cell_y = mouse_y // cell_size
 
@@ -550,17 +580,21 @@ class Simulation:
                     elif event.button == 3:
                         return
 
+        self._save_tree_to_file(tree_for_save)
+
+    def _save_tree_to_file(self, tree):
         root = tk.Tk()
         root.withdraw()
         if not os.path.exists('saves'):
             os.makedirs('saves')
-        file_path = filedialog.asksaveasfilename(initialdir='saves', defaultextension=".txt", filetypes=[("Text files", "*.txt")])
+        file_path = filedialog.asksaveasfilename(initialdir='saves', defaultextension=".txt", 
+                                                filetypes=[("Text files", "*.txt")])
 
         if file_path:
             with open(file_path, 'w') as f:
-                for gene in tree_for_save.genome.genes:
+                for gene in tree.genome.genes:
                     f.write(','.join(map(str, gene)) + '\n')
-                f.write(','.join(map(str, tree_for_save.genome.color)) + '\n')
+                f.write(','.join(map(str, tree.genome.color)) + '\n')
 
     def load_genome(self) -> None:
         root = tk.Tk()
@@ -569,51 +603,43 @@ class Simulation:
 
         if file_path:
             with open(file_path, 'r') as f:
-                genome = [list(map(int, line.strip().split(','))) if i != 16 else tuple(map(int, line.strip().split(','))) for i, line in enumerate(f)] 
+                genome = [list(map(int, line.strip().split(','))) if i != 16 
+                         else tuple(map(int, line.strip().split(','))) 
+                         for i, line in enumerate(f)]
             
-            selected_cell = None
-            free_space = True
-            while not selected_cell:
-                for event in pygame.event.get():
-                    if event.type == pygame.MOUSEBUTTONDOWN:
-                        mouse_x, mouse_y = pygame.mouse.get_pos()
+            position = self._get_placement_position()
+            if position:
+                self.add_tree(genome=genome, x=position[0], y=position[1])
 
-                        clicked_cell_x = mouse_x // cell_size
-                        clicked_cell_y = mouse_y // cell_size
+    def _get_placement_position(self):
+        selected_cell = None
+        free_space = True
+        while not selected_cell:
+            for event in pygame.event.get():
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_x, mouse_y = pygame.mouse.get_pos()
+                    clicked_cell_x = mouse_x // cell_size
+                    clicked_cell_y = mouse_y // cell_size
 
-                        for tree in self.trees:
-                            for cell in tree.cells:
-                                if cell.x == clicked_cell_x and cell.y == clicked_cell_y:
-                                    free_space = False
-                        
-                        while clicked_cell_y < rows - 1 and not any(c.x == clicked_cell_x and c.y == clicked_cell_y + 1 for tree in self.trees for c in tree.cells):
-                            clicked_cell_y += 1
+                    free_space = not any(c.x == clicked_cell_x and c.y == clicked_cell_y 
+                                       for tree in self.trees for c in tree.cells)
+                    
+                    while (clicked_cell_y < rows - 1 and 
+                           not any(c.x == clicked_cell_x and c.y == clicked_cell_y + 1 
+                                 for tree in self.trees for c in tree.cells)):
+                        clicked_cell_y += 1
 
-                        if free_space:
-                            selected_cell = (clicked_cell_x, clicked_cell_y)
-            
-            self.add_tree(genome=genome, x=selected_cell[0], y=selected_cell[1])  
+                    if free_space:
+                        return (clicked_cell_x, clicked_cell_y)
+        return None
 
     def run(self):
         event_handler = EventHandler(self)
 
         while self.running:
-            screen.fill((0, 0, 0))
             event_handler.handle_events()
             self.update_cell_grid()
-            self.ui.draw()
-
-            for cell in self.cell_grid.values():
-                if self.display_mode == 'normal':
-                    pygame.draw.rect(screen, cell.tree.genome.color if cell.state == '1' else (240, 248, 255), 
-                                        (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
-                elif self.display_mode == 'energy':
-                    energy_color = (min(255, int(cell.last_energy * 10) + 50), 0, 0)
-                    pygame.draw.rect(screen, energy_color, (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
-                elif self.display_mode == 'family':
-                    pygame.draw.rect(screen, cell.tree.genome.ancestral_color if cell.state == '1' else (240, 248, 255),
-                    (cell.x * cell_size, cell.y * cell_size, cell_size, cell_size))
-
+            self.renderer.draw()
             pygame.display.flip()
 
             if not self.paused:
