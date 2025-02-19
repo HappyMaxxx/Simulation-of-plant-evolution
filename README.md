@@ -55,10 +55,10 @@ places trees, and runs the simulation step by step, processing factors such as:
 ## Installation and Running
 
 1. Clone the repository:
-   ```bash
-   git clone https://github.com/HappyMaxxx/Simulation-of-plant-evolution.git
-   cd Simulation-of-plant-evolution
-   ```
+  ```bash
+  git clone https://github.com/HappyMaxxx/Simulation-of-plant-evolution.git
+  cd Simulation-of-plant-evolution
+  ```
 2. Create and activate a Python virtual environment:  
   ```bash
   python3 -m venv venv
@@ -67,13 +67,13 @@ places trees, and runs the simulation step by step, processing factors such as:
   venv\Scripts\activate     # For Windows
   ```
 3. Install the required libraries:
-   ```bash
-   pip install -r requirements.txt
-   ```
+  ```bash
+  pip install -r requirements.txt
+  ```
 4. Run the main simulation:
-   ```bash
-   python main.py
-   ```
+  ```bash
+  python main.py
+  ```
 
 ---
 
