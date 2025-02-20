@@ -63,7 +63,7 @@ class Genome:
     def __init__(self, tree: 'Tree', genes: List[List[int]] = None, color: Tuple[int, int, int] = None, ancestral_color: Tuple[int, int, int] = None) -> None:
         self.tree = tree
         self.genes = genes if genes else [self.generate_gen(i) for i in range(16)]
-        self.color = color if color else self.generate_color()
+        self.color = color if color is not None else self.generate_color()
         self.ancestral_color = ancestral_color if ancestral_color else self.color
 
     @staticmethod
@@ -526,8 +526,8 @@ class Renderer:
             pygame.draw.rect(self.screen, energy_color, rect)
         
         elif self.simulation.display_mode == 'family':
-            color = cell.tree.genome.ancestral_color if cell.state == '1' else (240, 248, 255)
-            pygame.draw.rect(self.screen, color, rect)
+            color = cell.tree.genome.ancestral_color
+            pygame.draw.rect(self.screen, color if cell.state == '1' else (240, 248, 255), rect)
 
 
 class Simulation:
@@ -633,6 +633,14 @@ class Simulation:
                         return (clicked_cell_x, clicked_cell_y)
         return None
 
+    def check_for_ancestral(self):
+        if len(self.trees) <= 1:
+            return
+        
+        if len({tree.genome.ancestral_color for tree in self.trees}) == 1:
+            for tree in self.trees:
+                tree.genome.ancestral_color = tree.genome.color
+
     def run(self):
         event_handler = EventHandler(self)
 
@@ -643,6 +651,7 @@ class Simulation:
             pygame.display.flip()
 
             if not self.paused:
+                self.check_for_ancestral()
                 for tree in self.trees:
                     tree.step()
 
